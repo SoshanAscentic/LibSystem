@@ -6,7 +6,9 @@ using System.Threading.Tasks;
 
 namespace LibSystem.Domain.Common
 {
-    internal interface IAggregateRoot
+    public interface IAggregateRoot
     {
+        IReadOnlyCollection<IDomainEvent> DomainEvents { get; }
+        void ClearDomainEvents();
     }
 }

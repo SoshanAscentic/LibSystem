@@ -8,19 +8,19 @@ using System.Threading.Tasks;
 
 namespace LibSystem.Domain.Common
 {
-    public abstract class BaseEntity
+    public abstract class BaseEntity : IAggregateRoot
     {
         //Implements domain events pattern for rich domain model
         private readonly List<IDomainEvent> domainEvents = new();
 
-        public int id { get; set; }
+        public int Id { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; }
 
 
         //Gets the domain events that have been raised by this entity and used for eventual consistency and side effects
         [NotMapped]
-        private IReadOnlyCollection<IDomainEvent> DomainEvents => domainEvents.AsReadOnly();
+        public IReadOnlyCollection<IDomainEvent> DomainEvents => domainEvents.AsReadOnly();
 
         //Enabling loose cupling between domain events and event handlers
         public void AddDomainEvent(IDomainEvent domainEvent)
@@ -35,7 +35,7 @@ namespace LibSystem.Domain.Common
             domainEvents.Remove(domainEvent);
         }
 
-        public void CleanDomainEvents()
+        public void ClearDomainEvents()
         {
             domainEvents.Clear();
         }
