@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace LibSystem.Domain.Entities.Members
 {
-    public class RegularMember : Member
+    public sealed class RegularMember : Member
     {
         // Parameterless constructor for EF Core
         public RegularMember() { }
@@ -17,5 +17,6 @@ namespace LibSystem.Domain.Entities.Members
         public override bool CanBorrowBooks() => true;
         public override bool CanViewBooks() => true;
         public override bool CanViewMembers() => true;
+        public override bool CanManageBooks() => false;
     }
 }
