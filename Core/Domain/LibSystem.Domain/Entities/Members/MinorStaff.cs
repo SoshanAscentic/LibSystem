@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace LibSystem.Domain.Entities.Members
 {
-    public class MinorStaff : Staff
+    public sealed class MinorStaff : Staff
     {
         // Parameterless constructor for EF Core
         public MinorStaff() { }
@@ -14,5 +14,7 @@ namespace LibSystem.Domain.Entities.Members
         public MinorStaff(string name) : base(name) { }
 
         public override string GetMemberType() => "Minor Staff";
+
+        public override bool CanBorrowBooks() => false;
     }
 }
