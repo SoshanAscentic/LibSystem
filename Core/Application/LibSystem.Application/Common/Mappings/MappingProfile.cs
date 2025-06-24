@@ -1,5 +1,7 @@
 ﻿using AutoMapper;
 using LibSystem.Application.Books.DTOs;
+using LibSystem.Application.Borrowing.DTOs;
+using LibSystem.Application.Members.DTOs;
 using LibSystem.Domain.Entities.Books;
 using LibSystem.Domain.Entities.Borrowing;
 using LibSystem.Domain.Entities.Members;

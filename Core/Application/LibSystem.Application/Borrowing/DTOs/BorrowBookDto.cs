@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace LibSystem.Application.Books.DTOs
+namespace LibSystem.Application.Borrowing.DTOs
 {
     public class BorrowBookDto
     {
