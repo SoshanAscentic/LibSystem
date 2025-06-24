@@ -59,4 +59,4 @@ namespace LibSystem.Application.Common.Models
         public static implicit operator Result<T>(string error) => Failure(error);
     }
 }
-}
+

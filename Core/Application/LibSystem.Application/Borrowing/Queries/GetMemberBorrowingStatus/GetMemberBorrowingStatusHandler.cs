@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace LibSystem.Application.Borrowing.Queries
+namespace LibSystem.Application.Borrowing.Queries.GetMemberBorrowingStatus
 {
     internal class GetMemberBorrowingStatusHandler
     {

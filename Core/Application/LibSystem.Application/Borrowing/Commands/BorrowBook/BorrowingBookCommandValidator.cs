@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace LibSystem.Application.Borrowing.Commands
+namespace LibSystem.Application.Borrowing.Commands.BorrowBook
 {
     internal class BorrowingBookCommandValidator
     {

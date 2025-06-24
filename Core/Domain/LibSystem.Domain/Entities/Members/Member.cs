@@ -101,4 +101,3 @@ namespace LibSystem.Domain.Entities.Members
         }
     }
 }
-}

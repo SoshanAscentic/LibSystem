@@ -12,6 +12,9 @@ namespace LibSystem.Domain.Common
         Task BeginTransactionAsync();
         Task CommitTransactionAsync();
         Task RollbackTransactionAsync();
-        bool HasActiveTransaction { get;
+        bool HasActiveTransaction
+        {
+            get;
         }
+    }
 }
