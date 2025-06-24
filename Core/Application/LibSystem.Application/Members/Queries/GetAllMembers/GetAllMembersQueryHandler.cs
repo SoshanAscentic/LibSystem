@@ -1,4 +1,10 @@
-﻿using System;
+﻿using AutoMapper;
+using LibSystem.Application.Common.Models;
+using LibSystem.Application.Members.DTOs;
+using LibSystem.Domain.Repositories;
+using MediatR;
+using Microsoft.Extensions.Logging;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -6,7 +12,40 @@ using System.Threading.Tasks;
 
 namespace LibSystem.Application.Members.Queries.GetAllMembers
 {
-    internal class GetAllMembersQueryHandler
+    public class GetAllMembersQueryHandler : IRequestHandler<GetAllMembersQuery, Result<IReadOnlyList<MemberDto>>>
     {
+        private readonly IMemberRepository memberRepository;
+        private readonly IMapper mapper;
+        private readonly ILogger<GetAllMembersQueryHandler> logger;
+
+        public GetAllMembersQueryHandler(
+            IMemberRepository memberRepository,
+            IMapper mapper,
+            ILogger<GetAllMembersQueryHandler> logger)
+        {
+            this.memberRepository = memberRepository;
+            this.mapper = mapper;
+            this.logger = logger;
+        }
+
+        public async Task<Result<IReadOnlyList<MemberDto>>> Handle(GetAllMembersQuery request, CancellationToken cancellationToken)
+        {
+            try
+            {
+                logger.LogInformation("Retrieving all members");
+
+                var members = await memberRepository.GetAllAsync(cancellationToken);
+                var memberDtos = mapper.Map<IReadOnlyList<MemberDto>>(members);
+
+                logger.LogInformation("Successfully retrieved {Count} members", memberDtos.Count);
+
+                return Result<IReadOnlyList<MemberDto>>.Success(memberDtos);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error retrieving all members");
+                return Result<IReadOnlyList<MemberDto>>.Failure("An error occurred while retrieving members.");
+            }
+        }
     }
 }

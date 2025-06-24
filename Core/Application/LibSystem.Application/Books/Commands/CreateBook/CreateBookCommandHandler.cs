@@ -16,34 +16,34 @@ namespace LibSystem.Application.Books.Commands.CreateBook
 {
     public class CreateBookCommandHandler : IRequestHandler<CreateBookCommand, Result<BookDto>>
     {
-        private readonly IBookRepository _bookRepository;
-        private readonly IMapper _mapper;
-        private readonly ILogger<CreateBookCommandHandler> _logger;
+        private readonly IBookRepository bookRepository;
+        private readonly IMapper mapper;
+        private readonly ILogger<CreateBookCommandHandler> logger;
 
         public CreateBookCommandHandler(
             IBookRepository bookRepository,
             IMapper mapper,
             ILogger<CreateBookCommandHandler> logger)
         {
-            _bookRepository = bookRepository;
-            _mapper = mapper;
-            _logger = logger;
+            this.bookRepository = bookRepository;
+            this.mapper = mapper;
+            this.logger = logger;
         }
 
         public async Task<Result<BookDto>> Handle(CreateBookCommand request, CancellationToken cancellationToken)
         {
             try
             {
-                _logger.LogInformation("Creating book: {Title} by {Author}", request.Title, request.Author);
+                logger.LogInformation("Creating book: {Title} by {Author}", request.Title, request.Author);
 
                 // Check for duplicates (business rule: unique title + year combination)
-                var existingBook = await _bookRepository.GetByTitleAndYearAsync(
+                var existingBook = await bookRepository.GetByTitleAndYearAsync(
                     request.Title, request.PublicationYear, cancellationToken);
 
                 if (existingBook != null)
                 {
                     var error = $"A book with title '{request.Title}' and publication year {request.PublicationYear} already exists.";
-                    _logger.LogWarning(error);
+                    logger.LogWarning(error);
                     return Result<BookDto>.Failure(error);
                 }
 
@@ -55,24 +55,24 @@ namespace LibSystem.Application.Books.Commands.CreateBook
                     (Book.BookCategory)request.Category);
 
                 // Save to repository
-                await _bookRepository.AddAsync(book, cancellationToken);
-                await _bookRepository.SaveChangesAsync(cancellationToken);
+                await bookRepository.AddAsync(book, cancellationToken);
+                await bookRepository.SaveChangesAsync(cancellationToken);
 
                 // Map to DTO and return success result
-                var bookDto = _mapper.Map<BookDto>(book);
+                var bookDto = mapper.Map<BookDto>(book);
 
-                _logger.LogInformation("Successfully created book with ID: {BookId}", book.BookId.Value);
+                logger.LogInformation("Successfully created book with ID: {BookId}", book.BookId.Value);
 
                 return Result<BookDto>.Success(bookDto);
             }
             catch (DuplicateBookException ex)
             {
-                _logger.LogWarning(ex, "Duplicate book creation attempted");
+                logger.LogWarning(ex, "Duplicate book creation attempted");
                 return Result<BookDto>.Failure(ex.Message);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error creating book: {Title} by {Author}", request.Title, request.Author);
+                logger.LogError(ex, "Error creating book: {Title} by {Author}", request.Title, request.Author);
                 return Result<BookDto>.Failure("An error occurred while creating the book.");
             }
         }
