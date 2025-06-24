@@ -16,12 +16,12 @@ namespace LibSystem.Application.Common.Behaviors
 
         public ValidationBehavior(IEnumerable<IValidator<TRequest>> validators)
         {
-            _validators = validators;
+            this.validators = validators;
         }
 
         public async Task<TResponse> Handle(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken)
         {
-            if (!_validators.Any())
+            if (!validators.Any())
             {
                 return await next();
             }
@@ -29,7 +29,7 @@ namespace LibSystem.Application.Common.Behaviors
             var context = new ValidationContext<TRequest>(request);
 
             var validationResults = await Task.WhenAll(
-                _validators.Select(v => v.ValidateAsync(context, cancellationToken)));
+                validators.Select(v => v.ValidateAsync(context, cancellationToken)));
 
             var failures = validationResults
                 .Where(r => r.Errors.Any())
@@ -38,7 +38,7 @@ namespace LibSystem.Application.Common.Behaviors
 
             if (failures.Any())
             {
-                throw new ValidationException(failures);
+                throw new FluentValidation.ValidationException(failures);
             }
 
             return await next();

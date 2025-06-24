@@ -52,6 +52,12 @@ namespace LibSystem.Domain.Entities.Borrowing
             (int)(DateTime.UtcNow - BorrowedAt).TotalDays :
             (int)(ReturnedAt!.Value - BorrowedAt).TotalDays;
 
+        public bool IsOverdue()
+        {
+            const int maxBorrowDays = 14;
+            return DaysBorrowed > maxBorrowDays;
+        }
+
         // Private constructor for EF Core
         private BorrowingRecord() { }
 
