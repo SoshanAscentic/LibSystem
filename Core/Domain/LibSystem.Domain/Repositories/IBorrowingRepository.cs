@@ -1,4 +1,5 @@
-﻿using LibSystem.Domain.Entities.Borrowing;
+﻿using LibSystem.Domain.Common;
+using LibSystem.Domain.Entities.Borrowing;
 using LibSystem.Domain.ValueObjects;
 using System;
 using System.Collections.Generic;
@@ -8,17 +9,10 @@ using System.Threading.Tasks;
 
 namespace LibSystem.Domain.Repositories
 {
-    public interface IBorrowingRepository
+    public interface IBorrowingRepository : IGenericRepository<BorrowingRecord>
     {
-        // Basic CRUD operations
+        // Borrowing-specific operations
         Task<BorrowingRecord?> GetByIdAsync(BorrowingId id, CancellationToken cancellationToken = default);
-        Task<BorrowingRecord?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
-        Task<IReadOnlyList<BorrowingRecord>> GetAllAsync(CancellationToken cancellationToken = default);
-        Task AddAsync(BorrowingRecord borrowingRecord, CancellationToken cancellationToken = default);
-        void Update(BorrowingRecord borrowingRecord);
-        void Remove(BorrowingRecord borrowingRecord);
-
-        // Domain-specific queries
         Task<BorrowingRecord?> GetActiveBorrowingAsync(BookId bookId, MemberId memberId, CancellationToken cancellationToken = default);
         Task<IReadOnlyList<BorrowingRecord>> GetActiveBorrowingsByMemberAsync(MemberId memberId, CancellationToken cancellationToken = default);
         Task<IReadOnlyList<BorrowingRecord>> GetBorrowingHistoryByMemberAsync(MemberId memberId, CancellationToken cancellationToken = default);

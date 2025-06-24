@@ -5,13 +5,13 @@ using System.Linq.Expressions;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace LibSystem.Application.Common.Interfaces
+namespace LibSystem.Domain.Common
 {
     public interface IGenericRepository<T> where T : class
     {
         // Query operations
-        Task<T> GetByIdAync(int id, CancellationToken cancellationToken = default);
-        Task<IReadOnlyList<T>> GetAllAync(CancellationToken cancellationToken = default);
+        Task<T?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
+        Task<IReadOnlyList<T>> GetAllAsync(CancellationToken cancellationToken = default);
         Task<IReadOnlyList<T>> FindAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default);
         Task<T?> FirstOrDefaultAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default);
         Task<bool> ExistsAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default);
@@ -32,5 +32,4 @@ namespace LibSystem.Application.Common.Interfaces
         Task CommitTransactionAsync();
         Task RollbackTransactionAsync();
     }
-
 }
