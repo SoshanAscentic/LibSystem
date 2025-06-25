@@ -1,66 +1,50 @@
 ﻿using AutoMapper;
 using LibSystem.Application.Books.DTOs;
-using LibSystem.Application.Books.Queries.GetBookById;
 using LibSystem.Application.Common.Models;
-using LibSystem.Domain.Repositories;
-using LibSystem.Domain.ValueObjects;
+using LibSystem.Application.Repositories;
 using MediatR;
 using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace LibSystem.Application.Books.Queries.GetBooksByAuthor
 {
-    public class GetBookByIdQueryHandler : IRequestHandler<GetBookByIdQuery, Result<BookDto>>
+    public class GetBooksByAuthorQueryHandler : IRequestHandler<GetBooksByAuthorQuery, Result<IReadOnlyList<BookDto>>>
     {
         private readonly IBookRepository bookRepository;
         private readonly IMapper mapper;
-        private readonly ILogger<GetBookByIdQueryHandler> logger;
+        private readonly ILogger<GetBooksByAuthorQueryHandler> logger;
 
-        public GetBookByIdQueryHandler(
+        public GetBooksByAuthorQueryHandler(
             IBookRepository bookRepository,
             IMapper mapper,
-            ILogger<GetBookByIdQueryHandler> logger)
+            ILogger<GetBooksByAuthorQueryHandler> logger)
         {
             this.bookRepository = bookRepository;
             this.mapper = mapper;
             this.logger = logger;
         }
 
-        public async Task<Result<BookDto>> Handle(GetBookByIdQuery request, CancellationToken cancellationToken)
+        public async Task<Result<IReadOnlyList<BookDto>>> Handle(GetBooksByAuthorQuery request, CancellationToken cancellationToken)
         {
             try
             {
-                if (request.BookId <= 0)
+                if (string.IsNullOrWhiteSpace(request.Author))
                 {
-                    return Result<BookDto>.Failure("Book ID must be positive.");
+                    return Result<IReadOnlyList<BookDto>>.Failure("Author name cannot be empty.");
                 }
 
-                logger.LogInformation("Retrieving book with ID: {BookId}", request.BookId);
+                logger.LogInformation("Retrieving books by author: {Author}", request.Author);
 
-                var bookId = BookId.Create(request.BookId);
-                var book = await bookRepository.GetByIdAsync(bookId, cancellationToken);
+                var books = await bookRepository.GetBooksByAuthorAsync(request.Author, cancellationToken);
+                var bookDtos = mapper.Map<IReadOnlyList<BookDto>>(books);
 
-                if (book == null)
-                {
-                    var error = $"Book with ID {request.BookId} was not found.";
-                    logger.LogWarning(error);
-                    return Result<BookDto>.Failure(error);
-                }
+                logger.LogInformation("Successfully retrieved {Count} books by author: {Author}", bookDtos.Count, request.Author);
 
-                var bookDto = mapper.Map<BookDto>(book);
-
-                logger.LogInformation("Successfully retrieved book: {Title}", book.Title);
-
-                return Result<BookDto>.Success(bookDto);
+                return Result<IReadOnlyList<BookDto>>.Success(bookDtos);
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error retrieving book with ID: {BookId}", request.BookId);
-                return Result<BookDto>.Failure("An error occurred while retrieving the book.");
+                logger.LogError(ex, "Error retrieving books by author: {Author}", request.Author);
+                return Result<IReadOnlyList<BookDto>>.Failure("An error occurred while retrieving books by author.");
             }
         }
     }

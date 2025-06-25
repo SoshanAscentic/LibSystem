@@ -5,24 +5,19 @@ using LibSystem.Application.Members.DTOs;
 using LibSystem.Domain.Entities.Books;
 using LibSystem.Domain.Entities.Borrowing;
 using LibSystem.Domain.Entities.Members;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace LibSystem.Application.Common.Mappings
 {
     public class MappingProfile : Profile
     {
-        public MappingProfile() 
+        public MappingProfile()
         {
             CreateBookMappings();
             CreateMemberMappings();
             CreateBorrowingMappings();
         }
 
-        private void CreateBorrowingMappings()
+        private void CreateBookMappings()
         {
             //Book entity to DTO Mapping
             CreateMap<Book, BookDto>()
@@ -42,6 +37,7 @@ namespace LibSystem.Application.Common.Mappings
                 .ForMember(dest => dest.MemberID, opt => opt.MapFrom(src => src.MemberId.Value))
                 .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name.Value))
                 .ForMember(dest => dest.MemberType, opt => opt.MapFrom(src => src.GetMemberType()))
+                .ForMember(dest => dest.BorrowedBooksCount, opt => opt.MapFrom(src => src.BorrowedBooksCount))
                 .ForMember(dest => dest.CanBorrowBooks, opt => opt.MapFrom(src => src.CanBorrowBooks()))
                 .ForMember(dest => dest.CanViewBooks, opt => opt.MapFrom(src => src.CanViewBooks()))
                 .ForMember(dest => dest.CanViewMembers, opt => opt.MapFrom(src => src.CanViewMembers()))
@@ -52,12 +48,13 @@ namespace LibSystem.Application.Common.Mappings
                 .ForMember(dest => dest.MemberId, opt => opt.MapFrom(src => src.MemberId.Value))
                 .ForMember(dest => dest.MemberName, opt => opt.MapFrom(src => src.Name.Value))
                 .ForMember(dest => dest.MemberType, opt => opt.MapFrom(src => src.GetMemberType()))
+                .ForMember(dest => dest.BorrowedBooksCount, opt => opt.MapFrom(src => src.BorrowedBooksCount))
                 .ForMember(dest => dest.CanBorrowBooks, opt => opt.MapFrom(src => src.CanBorrowBooks()))
                 .ForMember(dest => dest.CanBorrowMoreBooks, opt => opt.MapFrom(src => src.CanBorrowMoreBooks()))
                 .ForMember(dest => dest.BorrowedBooks, opt => opt.Ignore());//Populated separately
         }
 
-        private void CreateBookMappings()
+        private void CreateBorrowingMappings()
         {
             // BorrowingRecord to BorrowedBookDto (requires Book information)
             CreateMap<BorrowingRecord, BorrowedBookDto>()
