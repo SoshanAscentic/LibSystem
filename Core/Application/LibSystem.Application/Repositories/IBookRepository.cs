@@ -7,7 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace LibSystem.Domain.Repositories
+namespace LibSystem.Application.Repositories
 {
     public interface IBookRepository : IGenericRepository<Book>
     {
