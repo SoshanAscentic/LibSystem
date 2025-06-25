@@ -1,6 +1,7 @@
 ﻿using LibSystem.Application.Common.Interfaces;
 using LibSystem.Domain.Entities.Books;
 using LibSystem.Domain.Entities.Borrowing;
+using LibSystem.Domain.Entities.Members;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -12,7 +13,7 @@ using System.Threading.Tasks;
 
 namespace LibSystem.Persistence
 {
-    public class LibraryDbContext : DbContext, IApplicationDbContext, IUnitOfWork
+    public class LibraryDbContext : DbContext, IUnitOfWork
     {
         private readonly IMediator _mediator;
         private IDbContextTransaction _currentTransaction;
