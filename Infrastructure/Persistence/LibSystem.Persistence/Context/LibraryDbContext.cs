@@ -12,7 +12,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace LibSystem.Persistence
+namespace LibSystem.Persistence.Context
 {
     public class LibraryDbContext : DbContext
     {

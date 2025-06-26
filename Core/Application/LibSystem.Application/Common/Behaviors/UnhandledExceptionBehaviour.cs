@@ -11,11 +11,11 @@ namespace LibSystem.Application.Common.Behaviors
     public class UnhandledExceptionBehaviour<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
         where TRequest : class, IRequest<TResponse>
     {
-        private readonly ILogger<TRequest> _logger;
+        private readonly ILogger<TRequest> logger;
 
         public UnhandledExceptionBehaviour(ILogger<TRequest> logger)
         {
-            _logger = logger;
+            this.logger = logger;
         }
 
         public async Task<TResponse> Handle(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken)
@@ -28,7 +28,7 @@ namespace LibSystem.Application.Common.Behaviors
             {
                 var requestName = typeof(TRequest).Name;
 
-                _logger.LogError(ex, "Library System Request: Unhandled Exception for Request {Name} {@Request}",
+                logger.LogError(ex, "Library System Request: Unhandled Exception for Request {Name} {@Request}",
                     requestName, request);
 
                 throw;
