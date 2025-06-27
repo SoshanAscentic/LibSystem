@@ -1,7 +1,7 @@
-﻿using LibSystem.Application.Borrowing.Queries.GetMemberBorrowingStatus;
-using LibSystem.Application.Common.Models;
+﻿using LibSystem.Application.Common.Models;
 using LibSystem.Application.DTOs;
 using LibSystem.Application.Usecases.Borrowing.BorrowBook;
+using LibSystem.Application.Usecases.Borrowing.GetMemberBorrowingStatus;
 using LibSystem.Application.Usecases.Borrowing.ReturnBook;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;

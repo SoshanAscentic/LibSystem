@@ -1,11 +1,11 @@
-﻿using LibSystem.Application.Books.Commands.DeleteBook;
-using LibSystem.Application.Books.Queries.GetAllBooks;
-using LibSystem.Application.Books.Queries.GetBookById;
-using LibSystem.Application.Books.Queries.GetBooksByAuthor;
-using LibSystem.Application.Books.Queries.GetBooksByCategory;
-using LibSystem.Application.Common.Models;
+﻿using LibSystem.Application.Common.Models;
 using LibSystem.Application.DTOs;
 using LibSystem.Application.Usecases.Books.CreateBook;
+using LibSystem.Application.Usecases.Books.DeleteBook;
+using LibSystem.Application.Usecases.Books.GetAllBooks;
+using LibSystem.Application.Usecases.Books.GetBookById;
+using LibSystem.Application.Usecases.Books.GetBooksByAuthor;
+using LibSystem.Application.Usecases.Books.GetBooksByCategory;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 

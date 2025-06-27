@@ -1,5 +1,4 @@
-﻿using LibSystem.Application.Common.Interfaces;
-using LibSystem.Domain.Entities.Books;
+﻿using LibSystem.Domain.Entities.Books;
 using LibSystem.Domain.Entities.Borrowing;
 using LibSystem.Domain.Entities.Members;
 using LibSystem.Domain.ValueObjects;
