@@ -21,7 +21,8 @@ namespace LibSystem.Persistence.Repositories
         {
             if (id == null) throw new ArgumentNullException(nameof(id));
 
-            return await dbSet.FirstOrDefaultAsync(b => b.BookId.Value == id.Value, cancellationToken);
+            // Use base Id for querying
+            return await dbSet.FindAsync(new object[] { id.Value }, cancellationToken);
         }
 
         public async Task<IReadOnlyList<Book>> GetAvailableBooksAsync(CancellationToken cancellationToken = default)
@@ -40,6 +41,7 @@ namespace LibSystem.Persistence.Repositories
                 .ThenBy(b => b.Author)
                 .ToListAsync(cancellationToken);
         }
+
         public async Task<IReadOnlyList<Book>> GetBooksByAuthorAsync(string author, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(author))
@@ -51,53 +53,59 @@ namespace LibSystem.Persistence.Repositories
                 .ThenBy(b => b.Title)
                 .ToListAsync(cancellationToken);
         }
+
+        // Avoid value object property access in database queries
         public async Task<Book?> GetByTitleAndYearAsync(string title, int publicationYear, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(title))
                 return null;
 
-            return await dbSet
-                .FirstOrDefaultAsync(b => b.Title == title && b.PublicationYear.Value == publicationYear, cancellationToken);
+            // Get all books with matching title, then filter by publication year on client side
+            var books = await dbSet
+                .Where(b => b.Title == title)
+                .ToListAsync(cancellationToken);
+
+            // Filter by publication year using domain logic (client-side)
+            return books.FirstOrDefault(b => b.PublicationYear.Value == publicationYear);
         }
 
         public async Task<bool> ExistsAsync(BookId id, CancellationToken cancellationToken = default)
         {
             if (id == null) return false;
 
-            return await dbSet.AnyAsync(b => b.BookId.Value == id.Value, cancellationToken);
+            return await dbSet.AnyAsync(b => b.Id == id.Value, cancellationToken);
         }
-            public async Task<bool> ExistsByTitleAndYearAsync(string title, int publicationYear, CancellationToken cancellationToken = default)
+
+        public async Task<bool> ExistsByTitleAndYearAsync(string title, int publicationYear, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(title))
                 return false;
 
-            return await dbSet.AnyAsync(b => b.Title == title && b.PublicationYear.Value == publicationYear, cancellationToken);
-        }
+            // Get all books with matching title, then check publication year on client side
+            var books = await dbSet
+                .Where(b => b.Title == title)
+                .ToListAsync(cancellationToken);
 
-        
+            return books.Any(b => b.PublicationYear.Value == publicationYear);
+        }
 
         public override async Task<IReadOnlyList<Book>> GetAllAsync(CancellationToken cancellationToken = default)
         {
-            return await dbSet
+            // Get all books and sort on client side
+            var books = await dbSet
                 .OrderBy(b => b.Title)
                 .ThenBy(b => b.Author)
-                .ThenBy(b => b.PublicationYear.Value)
                 .ToListAsync(cancellationToken);
+
+            // Additional sorting by publication year on client side if needed
+            return books.OrderBy(b => b.PublicationYear.Value).ToList();
         }
 
         public override async Task AddAsync(Book entity, CancellationToken cancellationToken = default)
         {
             if (entity == null) throw new ArgumentNullException(nameof(entity));
 
-            // Additional validation: Check for duplicates before adding
-            var existingBook = await GetByTitleAndYearAsync(entity.Title, entity.PublicationYear.Value, cancellationToken);
-            if (existingBook != null)
-            {
-                throw new InvalidOperationException($"A book with title '{entity.Title}' and publication year {entity.PublicationYear.Value} already exists.");
-            }
-
             await base.AddAsync(entity, cancellationToken);
         }
-
     }
 }

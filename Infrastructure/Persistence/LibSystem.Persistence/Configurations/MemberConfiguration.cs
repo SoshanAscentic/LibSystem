@@ -1,4 +1,5 @@
-﻿using LibSystem.Domain.Entities.Members;
+﻿using LibSystem.Domain.Entities.Borrowing;
+using LibSystem.Domain.Entities.Members;
 using LibSystem.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -16,18 +17,21 @@ namespace LibSystem.Persistence.Configurations
         {
             builder.ToTable("Members");
 
-            // Configure primary key using the base entity Id
+            // PRIMARY KEY: Use base entity Id (hidden from domain)
             builder.HasKey(m => m.Id);
+            builder.Property(m => m.Id)
+                .ValueGeneratedOnAdd()
+                .HasColumnName("Id");
 
-            // Configure MemberId value object mapping
+            // DOMAIN ID: Map to separate column, sync with base Id
             builder.Property(m => m.MemberId)
                 .HasConversion(
                     memberId => memberId.Value,
-                    value => MemberId.Create(value))
-                .HasColumnName("MemberId")
-                .ValueGeneratedNever(); // Changed: Don't auto-generate MemberId
+                    value => value > 0 ? MemberId.Create(value) : MemberId.CreateNew())
+                .HasColumnName("MemberId") // ✅ Separate column
+                .ValueGeneratedNever();
 
-            // Name value object configuration
+            // Name value object
             builder.Property(m => m.Name)
                 .HasConversion(
                     name => name.Value,
@@ -36,45 +40,37 @@ namespace LibSystem.Persistence.Configurations
                 .HasMaxLength(100)
                 .IsRequired();
 
-            // BorrowedBooksCount property
+            // BorrowedBooksCount
             builder.Property(m => m.BorrowedBooksCount)
                 .HasColumnName("BorrowedBooksCount")
                 .HasDefaultValue(0)
                 .IsRequired();
 
-            // Configure discriminator for inheritance hierarchy
+            // Configure inheritance
             builder.HasDiscriminator<string>("MemberType")
                 .HasValue<RegularMember>("RegularMember")
                 .HasValue<MinorStaff>("MinorStaff")
                 .HasValue<ManagementStaff>("ManagementStaff");
 
-            // Configure discriminator column
             builder.Property("MemberType")
                 .HasMaxLength(20)
                 .IsRequired();
 
-            // Index on Name for name-based searches
+            // Indexes
             builder.HasIndex(m => m.Name)
                 .HasDatabaseName("IX_Members_Name");
 
-            // Index on MemberType for type-based filtering
             builder.HasIndex("MemberType")
                 .HasDatabaseName("IX_Members_MemberType");
 
-            // Index on BorrowedBooksCount for reporting
             builder.HasIndex(m => m.BorrowedBooksCount)
                 .HasDatabaseName("IX_Members_BorrowedBooksCount");
 
+            builder.HasIndex(m => m.MemberId)
+                .IsUnique()
+                .HasDatabaseName("IX_Members_MemberId");
 
-
-            /*// Add check constraint for borrowed books count
-            builder.HasCheckConstraint("CK_Members_BorrowedBooksCount",
-                $"[BorrowedBooksCount] >= 0 AND [BorrowedBooksCount] <= {Member.MAX_BORROWED_BOOKS}");
-
-            // Add check constraint for valid member types
-            builder.HasCheckConstraint("CK_Members_MemberType",
-                "[MemberType] IN ('RegularMember', 'MinorStaff', 'ManagementStaff')");*/
-
+            // Check constraints
             builder.ToTable("Members", tb =>
             {
                 tb.HasCheckConstraint("CK_Members_BorrowedBooksCount",
@@ -84,7 +80,7 @@ namespace LibSystem.Persistence.Configurations
                     "[MemberType] IN ('RegularMember', 'MinorStaff', 'ManagementStaff')");
             });
 
-            // Configure audit fields from BaseEntity
+            // Audit fields
             builder.Property(m => m.CreatedAt)
                 .IsRequired()
                 .HasDefaultValueSql("GETUTCDATE()");
@@ -93,7 +89,6 @@ namespace LibSystem.Persistence.Configurations
                 .IsRequired()
                 .HasDefaultValueSql("GETUTCDATE()");
 
-            // Ignore domain events collection as it's not persisted
             builder.Ignore(m => m.DomainEvents);
         }
     }

@@ -21,62 +21,60 @@ namespace LibSystem.Persistence.Repositories
         {
             if (id == null) throw new ArgumentNullException(nameof(id));
 
-            return await dbSet.FirstOrDefaultAsync(m => m.MemberId.Value == id.Value, cancellationToken);
+            // Use base Id for querying
+            return await dbSet.FindAsync(new object[] { id.Value }, cancellationToken);
         }
 
         public async Task<IReadOnlyList<Member>> GetMembersWithBorrowedBooksAsync(CancellationToken cancellationToken = default)
         {
-            return await dbSet
+            var members = await dbSet
                 .Where(m => m.BorrowedBooksCount > 0)
-                .OrderBy(m => m.Name.Value)
                 .ToListAsync(cancellationToken);
+
+            // Sort by name on client side
+            return members.OrderBy(m => m.Name.Value).ToList();
         }
 
         public async Task<IReadOnlyList<T>> GetMembersByTypeAsync<T>(CancellationToken cancellationToken = default) where T : Member
         {
-            return await dbSet
+            var members = await dbSet
                 .OfType<T>()
-                .OrderBy(m => m.Name.Value)
                 .ToListAsync(cancellationToken);
+
+            // Sort by name on client side
+            return members.OrderBy(m => m.Name.Value).ToList();
         }
 
         public async Task<bool> ExistsAsync(MemberId id, CancellationToken cancellationToken = default)
         {
             if (id == null) return false;
 
-            return await dbSet.AnyAsync(m => m.MemberId.Value == id.Value, cancellationToken);
+            return await dbSet.AnyAsync(m => m.Id == id.Value, cancellationToken);
         }
 
         public async Task<int> GetNextMemberIdAsync(CancellationToken cancellationToken = default)
         {
             var lastMember = await dbSet
-                .OrderByDescending(m => m.MemberId.Value)
+                .OrderByDescending(m => m.Id) // Use base Id for ordering
                 .FirstOrDefaultAsync(cancellationToken);
 
-            return lastMember?.MemberId.Value + 1 ?? 1;
+            return lastMember?.Id + 1 ?? 1;
         }
 
         public override async Task<IReadOnlyList<Member>> GetAllAsync(CancellationToken cancellationToken = default)
         {
-            return await dbSet
+            var members = await dbSet.ToListAsync(cancellationToken);
+
+            // Sort by name and ID on client side
+            return members
                 .OrderBy(m => m.Name.Value)
-                .ThenBy(m => m.MemberId.Value)
-                .ToListAsync(cancellationToken);
+                .ThenBy(m => m.Id)
+                .ToList();
         }
 
         public override async Task AddAsync(Member entity, CancellationToken cancellationToken = default)
         {
             if (entity == null) throw new ArgumentNullException(nameof(entity));
-
-            // Validate that the member doesn't already exist (defensive programming)
-            if (entity.MemberId.Value > 0)
-            {
-                var existingMember = await GetByIdAsync(entity.MemberId, cancellationToken);
-                if (existingMember != null)
-                {
-                    throw new InvalidOperationException($"Member with ID {entity.MemberId.Value} already exists.");
-                }
-            }
 
             await base.AddAsync(entity, cancellationToken);
         }

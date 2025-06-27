@@ -21,7 +21,8 @@ namespace LibSystem.Persistence.Repositories
         {
             if (id == null) throw new ArgumentNullException(nameof(id));
 
-            return await dbSet.FirstOrDefaultAsync(br => br.BorrowingId.Value == id.Value, cancellationToken);
+            // Use base Id for querying
+            return await dbSet.FindAsync(new object[] { id.Value }, cancellationToken);
         }
 
         public async Task<BorrowingRecord?> GetActiveBorrowingAsync(BookId bookId, MemberId memberId, CancellationToken cancellationToken = default)
@@ -59,25 +60,18 @@ namespace LibSystem.Persistence.Repositories
 
         public async Task<IReadOnlyList<BorrowingRecord>> GetOverdueBorrowingsAsync(CancellationToken cancellationToken = default)
         {
-            var overdueBorrowings = new List<BorrowingRecord>();
-
-            // Get all active borrowings
+            // Get all active borrowings first
             var activeBorrowings = await dbSet
                 .Where(br => br.ReturnedAt == null)
                 .ToListAsync(cancellationToken);
 
-            // Filter using domain logic for overdue calculation
-            foreach (var borrowing in activeBorrowings)
-            {
-                if (borrowing.IsOverdue())
-                {
-                    overdueBorrowings.Add(borrowing);
-                }
-            }
-
-            return overdueBorrowings
+            // Filter using domain logic for overdue calculation (client-side)
+            var overdueBorrowings = activeBorrowings
+                .Where(borrowing => borrowing.IsOverdue())
                 .OrderBy(br => br.BorrowedAt)
                 .ToList();
+
+            return overdueBorrowings;
         }
 
         public async Task<bool> IsBookCurrentlyBorrowedAsync(BookId bookId, CancellationToken cancellationToken = default)
@@ -101,21 +95,13 @@ namespace LibSystem.Persistence.Repositories
         {
             return await dbSet
                 .OrderByDescending(br => br.BorrowedAt)
-                .ThenBy(br => br.BorrowingId.Value)
+                .ThenBy(br => br.Id) // Use base Id for secondary ordering
                 .ToListAsync(cancellationToken);
         }
 
         public override async Task AddAsync(BorrowingRecord entity, CancellationToken cancellationToken = default)
         {
             if (entity == null) throw new ArgumentNullException(nameof(entity));
-
-            // Validate that this isn't a duplicate active borrowing
-            var existingActiveBorrowing = await GetActiveBorrowingAsync(entity.BookId, entity.MemberId, cancellationToken);
-            if (existingActiveBorrowing != null)
-            {
-                throw new InvalidOperationException(
-                    $"Book {entity.BookId.Value} is already borrowed by member {entity.MemberId.Value}.");
-            }
 
             await base.AddAsync(entity, cancellationToken);
         }
