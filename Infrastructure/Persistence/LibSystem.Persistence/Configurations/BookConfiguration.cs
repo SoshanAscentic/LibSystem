@@ -24,10 +24,10 @@ namespace LibSystem.Persistence.Configurations
             // Configure BookId value object as a separate property
             builder.Property(b => b.BookId)
                 .HasConversion(
-                    bookId => bookId.Value,              
-                    value => BookId.Create(value))       
+                    bookId => bookId.Value,
+                    value => BookId.Create(value))
                 .HasColumnName("BookId")
-                .ValueGeneratedOnAdd();                  
+                .ValueGeneratedNever();                  // Changed: Don't auto-generate BookId
 
 
             // Title property with validation constraints
@@ -45,21 +45,21 @@ namespace LibSystem.Persistence.Configurations
             // PublicationYear value object configuration
             builder.Property(b => b.PublicationYear)
                 .HasConversion(
-                    year => year.Value,                   
-                    value => PublicationYear.Create(value)) 
+                    year => year.Value,
+                    value => PublicationYear.Create(value))
                 .HasColumnName("PublicationYear")
                 .IsRequired();
 
             // Category enum configuration
             builder.Property(b => b.Category)
-                .HasConversion<int>()                     
+                .HasConversion<int>()
                 .HasColumnName("Category")
                 .IsRequired();
 
             // IsAvailable boolean property
             builder.Property(b => b.IsAvailable)
                 .HasColumnName("IsAvailable")
-                .HasDefaultValue(true)                    
+                .HasDefaultValue(true)
                 .IsRequired();
 
 

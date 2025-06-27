@@ -14,7 +14,6 @@ namespace LibSystem.Persistence.Configurations
     {
         public void Configure(EntityTypeBuilder<Member> builder)
         {
-
             builder.ToTable("Members");
 
             // Configure primary key using the base entity Id
@@ -26,9 +25,7 @@ namespace LibSystem.Persistence.Configurations
                     memberId => memberId.Value,
                     value => MemberId.Create(value))
                 .HasColumnName("MemberId")
-                .ValueGeneratedOnAdd();
-
-
+                .ValueGeneratedNever(); // Changed: Don't auto-generate MemberId
 
             // Name value object configuration
             builder.Property(m => m.Name)
@@ -45,8 +42,6 @@ namespace LibSystem.Persistence.Configurations
                 .HasDefaultValue(0)
                 .IsRequired();
 
-
-
             // Configure discriminator for inheritance hierarchy
             builder.HasDiscriminator<string>("MemberType")
                 .HasValue<RegularMember>("RegularMember")
@@ -57,8 +52,6 @@ namespace LibSystem.Persistence.Configurations
             builder.Property("MemberType")
                 .HasMaxLength(20)
                 .IsRequired();
-
-
 
             // Index on Name for name-based searches
             builder.HasIndex(m => m.Name)
@@ -91,9 +84,6 @@ namespace LibSystem.Persistence.Configurations
                     "[MemberType] IN ('RegularMember', 'MinorStaff', 'ManagementStaff')");
             });
 
-
-
-
             // Configure audit fields from BaseEntity
             builder.Property(m => m.CreatedAt)
                 .IsRequired()
@@ -103,11 +93,8 @@ namespace LibSystem.Persistence.Configurations
                 .IsRequired()
                 .HasDefaultValueSql("GETUTCDATE()");
 
-
-
             // Ignore domain events collection as it's not persisted
             builder.Ignore(m => m.DomainEvents);
-
         }
     }
 }

@@ -16,29 +16,29 @@ namespace LibSystem.Persistence.Configurations
         {
             builder.ToTable("BorrowingRecords");
 
-            // Configrution primary key using the base entity Id
+            // Configuration primary key using the base entity Id
             builder.HasKey(br => br.Id);
 
             //Configure BorrowingId value object mapping
             builder.Property(br => br.BorrowingId)
                 .HasConversion(
-                    borrowingId => borrowingId.Value,              
+                    borrowingId => borrowingId.Value,
                     value => BorrowingId.Create(value)) //Converting from int to BorrowingId value object
                 .HasColumnName("BorrowingId")
-                .ValueGeneratedOnAdd();
+                .ValueGeneratedNever(); // Changed: Don't auto-generate BorrowingId
 
             // Configure BookId value object as foreign key
             builder.Property(br => br.BookId)
                 .HasConversion(
-                    bookId => bookId.Value,               
-                    value => BookId.Create(value))        
+                    bookId => bookId.Value,
+                    value => BookId.Create(value))
                 .HasColumnName("BookId")
                 .IsRequired();
 
             // Configure MemberId value object as foreign key
             builder.Property(br => br.MemberId)
                 .HasConversion(
-                    memberId => memberId.Value,           
+                    memberId => memberId.Value,
                     value => MemberId.Create(value))
                 .HasColumnName("MemberId")
                 .IsRequired();

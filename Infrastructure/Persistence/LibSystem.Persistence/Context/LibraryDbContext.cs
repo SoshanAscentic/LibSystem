@@ -34,9 +34,7 @@ namespace LibSystem.Persistence.Context
         {
             base.OnModelCreating(modelBuilder);
 
-            // This automatically finds and applies all IEntityTypeConfiguration implementations
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(LibraryDbContext).Assembly);
-
         }
 
         // Configures database provider options

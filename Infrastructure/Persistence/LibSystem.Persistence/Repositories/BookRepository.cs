@@ -65,6 +65,7 @@ namespace LibSystem.Persistence.Repositories
             if (id == null) return false;
 
             return await dbSet.AnyAsync(b => b.BookId.Value == id.Value, cancellationToken);
+        }
             public async Task<bool> ExistsByTitleAndYearAsync(string title, int publicationYear, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(title))
