@@ -40,8 +40,12 @@ namespace LibSystem.Persistence
                 });
 
                 // Configure EF Core options
-                options.EnableSensitiveDataLogging(false); 
-                options.EnableDetailedErrors(false); 
+                options.EnableSensitiveDataLogging(false);
+                options.EnableDetailedErrors(false);
+
+                // Suppress the pending model changes warning for dynamic values in HasData
+                options.ConfigureWarnings(warnings =>
+                    warnings.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
             });
 
             // Register Generic Repository

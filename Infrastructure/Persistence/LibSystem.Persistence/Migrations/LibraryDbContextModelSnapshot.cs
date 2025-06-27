@@ -26,7 +26,8 @@ namespace LibSystem.Persistence.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("int")
+                        .HasColumnName("Id");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
@@ -75,6 +76,10 @@ namespace LibSystem.Persistence.Migrations
                     b.HasIndex("Author")
                         .HasDatabaseName("IX_Books_Author");
 
+                    b.HasIndex("BookId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Books_BookId");
+
                     b.HasIndex("Category")
                         .HasDatabaseName("IX_Books_Category");
 
@@ -94,11 +99,11 @@ namespace LibSystem.Persistence.Migrations
                             Author = "F. Scott Fitzgerald",
                             BookId = 1,
                             Category = 0,
-                            CreatedAt = new DateTime(2025, 6, 26, 8, 49, 33, 55, DateTimeKind.Utc).AddTicks(4948),
+                            CreatedAt = new DateTime(2025, 6, 27, 9, 53, 12, 509, DateTimeKind.Utc).AddTicks(2160),
                             IsAvailable = true,
                             PublicationYear = 1925,
                             Title = "The Great Gatsby",
-                            UpdatedAt = new DateTime(2025, 6, 26, 8, 49, 33, 55, DateTimeKind.Utc).AddTicks(4950)
+                            UpdatedAt = new DateTime(2025, 6, 27, 9, 53, 12, 509, DateTimeKind.Utc).AddTicks(2161)
                         },
                         new
                         {
@@ -106,11 +111,11 @@ namespace LibSystem.Persistence.Migrations
                             Author = "Harper Lee",
                             BookId = 2,
                             Category = 0,
-                            CreatedAt = new DateTime(2025, 6, 26, 8, 49, 33, 55, DateTimeKind.Utc).AddTicks(6109),
+                            CreatedAt = new DateTime(2025, 6, 27, 9, 53, 12, 509, DateTimeKind.Utc).AddTicks(2795),
                             IsAvailable = true,
                             PublicationYear = 1960,
                             Title = "To Kill a Mockingbird",
-                            UpdatedAt = new DateTime(2025, 6, 26, 8, 49, 33, 55, DateTimeKind.Utc).AddTicks(6110)
+                            UpdatedAt = new DateTime(2025, 6, 27, 9, 53, 12, 509, DateTimeKind.Utc).AddTicks(2796)
                         },
                         new
                         {
@@ -118,11 +123,11 @@ namespace LibSystem.Persistence.Migrations
                             Author = "George Orwell",
                             BookId = 3,
                             Category = 0,
-                            CreatedAt = new DateTime(2025, 6, 26, 8, 49, 33, 55, DateTimeKind.Utc).AddTicks(6114),
+                            CreatedAt = new DateTime(2025, 6, 27, 9, 53, 12, 509, DateTimeKind.Utc).AddTicks(2798),
                             IsAvailable = true,
                             PublicationYear = 1949,
                             Title = "1984",
-                            UpdatedAt = new DateTime(2025, 6, 26, 8, 49, 33, 55, DateTimeKind.Utc).AddTicks(6115)
+                            UpdatedAt = new DateTime(2025, 6, 27, 9, 53, 12, 509, DateTimeKind.Utc).AddTicks(2798)
                         },
                         new
                         {
@@ -130,11 +135,11 @@ namespace LibSystem.Persistence.Migrations
                             Author = "Stephen Hawking",
                             BookId = 4,
                             Category = 1,
-                            CreatedAt = new DateTime(2025, 6, 26, 8, 49, 33, 55, DateTimeKind.Utc).AddTicks(6117),
+                            CreatedAt = new DateTime(2025, 6, 27, 9, 53, 12, 509, DateTimeKind.Utc).AddTicks(2800),
                             IsAvailable = true,
                             PublicationYear = 1988,
                             Title = "A Brief History of Time",
-                            UpdatedAt = new DateTime(2025, 6, 26, 8, 49, 33, 55, DateTimeKind.Utc).AddTicks(6117)
+                            UpdatedAt = new DateTime(2025, 6, 27, 9, 53, 12, 509, DateTimeKind.Utc).AddTicks(2800)
                         },
                         new
                         {
@@ -142,11 +147,11 @@ namespace LibSystem.Persistence.Migrations
                             Author = "Eric Carle",
                             BookId = 5,
                             Category = 2,
-                            CreatedAt = new DateTime(2025, 6, 26, 8, 49, 33, 55, DateTimeKind.Utc).AddTicks(6119),
+                            CreatedAt = new DateTime(2025, 6, 27, 9, 53, 12, 509, DateTimeKind.Utc).AddTicks(2801),
                             IsAvailable = true,
                             PublicationYear = 1969,
                             Title = "The Very Hungry Caterpillar",
-                            UpdatedAt = new DateTime(2025, 6, 26, 8, 49, 33, 55, DateTimeKind.Utc).AddTicks(6120)
+                            UpdatedAt = new DateTime(2025, 6, 27, 9, 53, 12, 509, DateTimeKind.Utc).AddTicks(2802)
                         });
                 });
 
@@ -154,7 +159,8 @@ namespace LibSystem.Persistence.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("int")
+                        .HasColumnName("Id");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
@@ -196,6 +202,10 @@ namespace LibSystem.Persistence.Migrations
                     b.HasIndex("BorrowedAt")
                         .HasDatabaseName("IX_BorrowingRecords_BorrowedAt");
 
+                    b.HasIndex("BorrowingId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_BorrowingRecords_BorrowingId");
+
                     b.HasIndex("MemberId")
                         .HasDatabaseName("IX_BorrowingRecords_MemberId");
 
@@ -206,12 +216,6 @@ namespace LibSystem.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("UQ_BorrowingRecords_Active")
                         .HasFilter("[ReturnedAt] IS NULL");
-
-                    b.HasIndex("BorrowedAt", "ReturnedAt")
-                        .HasDatabaseName("IX_BorrowingRecords_Duration");
-
-                    b.HasIndex("BookId", "MemberId", "ReturnedAt")
-                        .HasDatabaseName("IX_BorrowingRecords_Active");
 
                     b.ToTable("BorrowingRecords", null, t =>
                         {
@@ -225,7 +229,8 @@ namespace LibSystem.Persistence.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("int")
+                        .HasColumnName("Id");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
@@ -264,6 +269,10 @@ namespace LibSystem.Persistence.Migrations
 
                     b.HasIndex("BorrowedBooksCount")
                         .HasDatabaseName("IX_Members_BorrowedBooksCount");
+
+                    b.HasIndex("MemberId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Members_MemberId");
 
                     b.HasIndex("MemberType")
                         .HasDatabaseName("IX_Members_MemberType");

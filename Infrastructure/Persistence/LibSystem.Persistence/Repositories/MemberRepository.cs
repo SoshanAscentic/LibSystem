@@ -31,7 +31,6 @@ namespace LibSystem.Persistence.Repositories
                 .Where(m => m.BorrowedBooksCount > 0)
                 .ToListAsync(cancellationToken);
 
-            // Sort by name on client side
             return members.OrderBy(m => m.Name.Value).ToList();
         }
 
@@ -41,7 +40,6 @@ namespace LibSystem.Persistence.Repositories
                 .OfType<T>()
                 .ToListAsync(cancellationToken);
 
-            // Sort by name on client side
             return members.OrderBy(m => m.Name.Value).ToList();
         }
 
@@ -65,7 +63,6 @@ namespace LibSystem.Persistence.Repositories
         {
             var members = await dbSet.ToListAsync(cancellationToken);
 
-            // Sort by name and ID on client side
             return members
                 .OrderBy(m => m.Name.Value)
                 .ThenBy(m => m.Id)
@@ -76,6 +73,13 @@ namespace LibSystem.Persistence.Repositories
         {
             if (entity == null) throw new ArgumentNullException(nameof(entity));
 
+            // Get next base Id and set it as the MemberId before adding
+            int nextId = await GetNextMemberIdAsync(cancellationToken);
+            
+            // Set the MemberId using the reflection (or you can alternatively add a method to set it)
+            var memberIdProperty = entity.GetType().GetProperty("MemberId");
+            memberIdProperty?.SetValue(entity, MemberId.Create(nextId));
+
             await base.AddAsync(entity, cancellationToken);
         }
 
@@ -83,7 +87,6 @@ namespace LibSystem.Persistence.Repositories
         {
             if (entity == null) throw new ArgumentNullException(nameof(entity));
 
-            // Validate business rules before updating
             if (entity.BorrowedBooksCount < 0)
             {
                 throw new InvalidOperationException("Member cannot have negative borrowed books count.");
@@ -97,6 +100,5 @@ namespace LibSystem.Persistence.Repositories
             base.Update(entity);
         }
     }
-
 }
 

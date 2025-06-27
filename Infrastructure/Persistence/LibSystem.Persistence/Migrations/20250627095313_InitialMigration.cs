@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace LibSystem.Persistence.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCreate : Migration
+    public partial class InitialMigration : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -79,17 +79,23 @@ namespace LibSystem.Persistence.Migrations
                 columns: new[] { "Id", "Author", "BookId", "Category", "CreatedAt", "IsAvailable", "PublicationYear", "Title", "UpdatedAt" },
                 values: new object[,]
                 {
-                    { 1, "F. Scott Fitzgerald", 1, 0, new DateTime(2025, 6, 26, 8, 49, 33, 55, DateTimeKind.Utc).AddTicks(4948), true, 1925, "The Great Gatsby", new DateTime(2025, 6, 26, 8, 49, 33, 55, DateTimeKind.Utc).AddTicks(4950) },
-                    { 2, "Harper Lee", 2, 0, new DateTime(2025, 6, 26, 8, 49, 33, 55, DateTimeKind.Utc).AddTicks(6109), true, 1960, "To Kill a Mockingbird", new DateTime(2025, 6, 26, 8, 49, 33, 55, DateTimeKind.Utc).AddTicks(6110) },
-                    { 3, "George Orwell", 3, 0, new DateTime(2025, 6, 26, 8, 49, 33, 55, DateTimeKind.Utc).AddTicks(6114), true, 1949, "1984", new DateTime(2025, 6, 26, 8, 49, 33, 55, DateTimeKind.Utc).AddTicks(6115) },
-                    { 4, "Stephen Hawking", 4, 1, new DateTime(2025, 6, 26, 8, 49, 33, 55, DateTimeKind.Utc).AddTicks(6117), true, 1988, "A Brief History of Time", new DateTime(2025, 6, 26, 8, 49, 33, 55, DateTimeKind.Utc).AddTicks(6117) },
-                    { 5, "Eric Carle", 5, 2, new DateTime(2025, 6, 26, 8, 49, 33, 55, DateTimeKind.Utc).AddTicks(6119), true, 1969, "The Very Hungry Caterpillar", new DateTime(2025, 6, 26, 8, 49, 33, 55, DateTimeKind.Utc).AddTicks(6120) }
+                    { 1, "F. Scott Fitzgerald", 1, 0, new DateTime(2025, 6, 27, 9, 53, 12, 509, DateTimeKind.Utc).AddTicks(2160), true, 1925, "The Great Gatsby", new DateTime(2025, 6, 27, 9, 53, 12, 509, DateTimeKind.Utc).AddTicks(2161) },
+                    { 2, "Harper Lee", 2, 0, new DateTime(2025, 6, 27, 9, 53, 12, 509, DateTimeKind.Utc).AddTicks(2795), true, 1960, "To Kill a Mockingbird", new DateTime(2025, 6, 27, 9, 53, 12, 509, DateTimeKind.Utc).AddTicks(2796) },
+                    { 3, "George Orwell", 3, 0, new DateTime(2025, 6, 27, 9, 53, 12, 509, DateTimeKind.Utc).AddTicks(2798), true, 1949, "1984", new DateTime(2025, 6, 27, 9, 53, 12, 509, DateTimeKind.Utc).AddTicks(2798) },
+                    { 4, "Stephen Hawking", 4, 1, new DateTime(2025, 6, 27, 9, 53, 12, 509, DateTimeKind.Utc).AddTicks(2800), true, 1988, "A Brief History of Time", new DateTime(2025, 6, 27, 9, 53, 12, 509, DateTimeKind.Utc).AddTicks(2800) },
+                    { 5, "Eric Carle", 5, 2, new DateTime(2025, 6, 27, 9, 53, 12, 509, DateTimeKind.Utc).AddTicks(2801), true, 1969, "The Very Hungry Caterpillar", new DateTime(2025, 6, 27, 9, 53, 12, 509, DateTimeKind.Utc).AddTicks(2802) }
                 });
 
             migrationBuilder.CreateIndex(
                 name: "IX_Books_Author",
                 table: "Books",
                 column: "Author");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Books_BookId",
+                table: "Books",
+                column: "BookId",
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Books_Category",
@@ -108,11 +114,6 @@ namespace LibSystem.Persistence.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_BorrowingRecords_Active",
-                table: "BorrowingRecords",
-                columns: new[] { "BookId", "MemberId", "ReturnedAt" });
-
-            migrationBuilder.CreateIndex(
                 name: "IX_BorrowingRecords_BookId",
                 table: "BorrowingRecords",
                 column: "BookId");
@@ -123,9 +124,10 @@ namespace LibSystem.Persistence.Migrations
                 column: "BorrowedAt");
 
             migrationBuilder.CreateIndex(
-                name: "IX_BorrowingRecords_Duration",
+                name: "IX_BorrowingRecords_BorrowingId",
                 table: "BorrowingRecords",
-                columns: new[] { "BorrowedAt", "ReturnedAt" });
+                column: "BorrowingId",
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_BorrowingRecords_MemberId",
@@ -148,6 +150,12 @@ namespace LibSystem.Persistence.Migrations
                 name: "IX_Members_BorrowedBooksCount",
                 table: "Members",
                 column: "BorrowedBooksCount");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Members_MemberId",
+                table: "Members",
+                column: "MemberId",
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Members_MemberType",

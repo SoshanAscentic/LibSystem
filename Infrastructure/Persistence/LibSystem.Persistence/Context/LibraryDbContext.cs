@@ -47,6 +47,10 @@ namespace LibSystem.Persistence.Context
                 optionsBuilder.EnableSensitiveDataLogging();
                 optionsBuilder.EnableDetailedErrors();
             }
+
+            // Suppress the pending model changes warning for dynamic values in HasData
+            optionsBuilder.ConfigureWarnings(warnings =>
+                warnings.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
         }
 
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

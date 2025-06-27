@@ -42,7 +42,7 @@ namespace LibSystem.Application.Usecases.Members.CreateMember
                 // Create member using factory method
                 var member = CreateMemberByType(request.Name.Trim(), request.MemberType);
 
-                // Add to repository (this just stages the change)
+                // Add to repository (this will set the proper MemberId)
                 await memberRepository.AddAsync(member, cancellationToken);
 
                 // Save through UnitOfWork (this persists everything)

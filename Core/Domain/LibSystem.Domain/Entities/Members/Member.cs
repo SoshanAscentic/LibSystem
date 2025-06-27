@@ -17,7 +17,9 @@ namespace LibSystem.Domain.Entities.Members
         private Name name;
         private int borrowedBooksCount;
 
-        public MemberId MemberId { get; private set; }
+        // MemberId can be accessed publicly but only set by derived classes or internally
+        public MemberId MemberId { get; internal set; }
+        
         public Name Name
         {
             get => name;
@@ -35,10 +37,15 @@ namespace LibSystem.Domain.Entities.Members
         public abstract bool CanViewMembers();
         public abstract bool CanManageBooks();
 
-        protected Member() { }
+        protected Member() 
+        {
+            // Default value will be replaced by repository when saving
+            MemberId = MemberId.CreateNew();
+        }
 
         protected Member(string name)
         {
+            // Let the repository set the MemberId when adding to database
             MemberId = MemberId.CreateNew();
             Name = Name.Create(name);
             BorrowedBooksCount = 0;
