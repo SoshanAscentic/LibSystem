@@ -1,9 +1,9 @@
 ﻿using LibSystem.Application.Common.Models;
-using LibSystem.Application.Members.Commands.AuthenticateMember;
-using LibSystem.Application.Members.Commands.CreateMember;
-using LibSystem.Application.Members.DTOs;
+using LibSystem.Application.DTOs;
 using LibSystem.Application.Members.Queries.GetAllMembers;
 using LibSystem.Application.Members.Queries.GetMembersById;
+using LibSystem.Application.Usecases.Members.AuthenticateMember;
+using LibSystem.Application.Usecases.Members.CreateMember;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 

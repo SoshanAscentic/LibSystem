@@ -1,4 +1,4 @@
-﻿using LibSystem.Application.Repositories;
+﻿using LibSystem.Application.Contracts.Repositories;
 using LibSystem.Domain.Entities.Members;
 using LibSystem.Domain.ValueObjects;
 using LibSystem.Persistence.Context;

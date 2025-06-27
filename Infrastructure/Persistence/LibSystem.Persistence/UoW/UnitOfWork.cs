@@ -1,5 +1,7 @@
-﻿using LibSystem.Application.Common.Interfaces;
+﻿using LibSystem.Application.Contracts.UoW;
+using LibSystem.Domain.Common;
 using LibSystem.Persistence.Context;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,27 +10,30 @@ using System.Threading.Tasks;
 
 namespace LibSystem.Persistence.UoW
 {
-    public class UnitOfWork : IUnitOfWork
+    public class UnitOfWork : IUnitOfWork, IDisposable
     {
         private readonly LibraryDbContext context;
+        private bool disposed = false;
 
         public UnitOfWork(LibraryDbContext context)
         {
             this.context = context ?? throw new ArgumentNullException(nameof(context));
         }
 
-
-        // Indicates whether there's an active transaction
         public bool HasActiveTransaction => context.Database.CurrentTransaction != null;
 
-
-        // Saves all changes made in the current unit of work
         public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
+            // STEP 3a: Set audit fields before saving
+            SetAuditFields();
+
+            // STEP 3b: Process domain events before saving
+            await ProcessDomainEventsAsync(cancellationToken);
+
+            // STEP 3c: Save all changes in one transaction
             return await context.SaveChangesAsync(cancellationToken);
         }
 
-        // Begins a new database transaction. Enables rollback capability for complex operations
         public async Task BeginTransactionAsync()
         {
             if (HasActiveTransaction)
@@ -39,8 +44,6 @@ namespace LibSystem.Persistence.UoW
             await context.Database.BeginTransactionAsync();
         }
 
-
-        // Commits the current transaction. Makes all changes permanent in the database
         public async Task CommitTransactionAsync()
         {
             if (!HasActiveTransaction)
@@ -59,8 +62,6 @@ namespace LibSystem.Persistence.UoW
             }
         }
 
-
-        // Rolls back the current transaction. Discards all changes made since the transaction began
         public async Task RollbackTransactionAsync()
         {
             if (!HasActiveTransaction)
@@ -69,6 +70,56 @@ namespace LibSystem.Persistence.UoW
             }
 
             await context.Database.RollbackTransactionAsync();
+        }
+
+        private void SetAuditFields()
+        {
+            var entries = context.ChangeTracker.Entries<BaseEntity>();
+
+            foreach (var entry in entries)
+            {
+                switch (entry.State)
+                {
+                    case EntityState.Added:
+                        entry.Entity.CreatedAt = DateTime.UtcNow;
+                        entry.Entity.UpdatedAt = DateTime.UtcNow;
+                        break;
+                    case EntityState.Modified:
+                        entry.Entity.UpdatedAt = DateTime.UtcNow;
+                        break;
+                }
+            }
+        }
+
+        private async Task ProcessDomainEventsAsync(CancellationToken cancellationToken)
+        {
+            var domainEntities = context.ChangeTracker
+                .Entries<IAggregateRoot>()
+                .Where(e => e.Entity.DomainEvents.Any())
+                .ToList();
+
+            var domainEvents = domainEntities
+                .SelectMany(x => x.Entity.DomainEvents)
+                .ToList();
+
+            // Clear events before processing to avoid duplicate processing
+            domainEntities.ForEach(entity => entity.Entity.ClearDomainEvents());
+
+            // Here you could publish domain events using MediatR
+            foreach (var domainEvent in domainEvents)
+            {
+                Console.WriteLine($"Domain Event: {domainEvent.GetType().Name} occurred at {domainEvent.OccurredOn}");
+                // In a real implementation: await mediator.Publish(domainEvent, cancellationToken);
+            }
+        }
+
+        public void Dispose()
+        {
+            if (!disposed)
+            {
+                context?.Dispose();
+                disposed = true;
+            }
         }
     }
 }

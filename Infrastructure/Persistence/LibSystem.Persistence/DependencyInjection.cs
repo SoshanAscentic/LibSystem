@@ -1,5 +1,5 @@
-﻿using LibSystem.Application.Common.Interfaces;
-using LibSystem.Application.Repositories;
+﻿using LibSystem.Application.Contracts.Repositories;
+using LibSystem.Application.Contracts.UoW;
 using LibSystem.Domain.Common;
 using LibSystem.Domain.ValueObjects;
 using LibSystem.Persistence.Context;

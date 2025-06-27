@@ -13,8 +13,8 @@ namespace LibSystem.Domain.ValueObjects
 
         private MemberId(int value)
         {
-            if (value <= 0)
-                throw new ArgumentOutOfRangeException(nameof(value), "Member ID must be a positive integer.");
+            if (value < 0) // Changed: Allow 0 for new entities
+                throw new ArgumentOutOfRangeException(nameof(value), "Member ID cannot be negative.");
             Value = value;
         }
 
