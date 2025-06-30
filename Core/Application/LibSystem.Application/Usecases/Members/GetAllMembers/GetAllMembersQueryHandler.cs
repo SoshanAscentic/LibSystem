@@ -43,8 +43,8 @@ namespace LibSystem.Application.Usecases.Members.GetAllMembers
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error retrieving all members");
-                return Result<IReadOnlyList<MemberDto>>.Failure("An error occurred while retrieving members.");
+                logger.LogError(ex, "Unexpected error retrieving all members");
+                return Result<IReadOnlyList<MemberDto>>.Failure(DomainErrors.General.UnexpectedError());
             }
         }
     }

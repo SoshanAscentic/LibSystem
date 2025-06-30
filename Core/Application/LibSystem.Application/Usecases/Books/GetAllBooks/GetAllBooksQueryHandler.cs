@@ -43,8 +43,8 @@ namespace LibSystem.Application.Usecases.Books.GetAllBooks
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error retrieving all books");
-                return Result<IReadOnlyList<BookDto>>.Failure("An error occurred while retrieving books.");
+                logger.LogError(ex, "Unexpected error retrieving all books");
+                return Result<IReadOnlyList<BookDto>>.Failure(DomainErrors.General.UnexpectedError());
             }
         }
     }

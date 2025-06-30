@@ -35,7 +35,7 @@ namespace LibSystem.Application.Usecases.Books.GetBooksByCategory
             {
                 if (string.IsNullOrWhiteSpace(request.Category))
                 {
-                    return Result<IReadOnlyList<BookDto>>.Failure("Category cannot be empty.");
+                    return Result<IReadOnlyList<BookDto>>.Failure(DomainErrors.Book.InvalidCategory());
                 }
 
                 logger.LogInformation("Retrieving books by category: {Category}", request.Category);
@@ -43,9 +43,8 @@ namespace LibSystem.Application.Usecases.Books.GetBooksByCategory
                 // Validate and parse category
                 if (!Enum.TryParse<Book.BookCategory>(request.Category, true, out var bookCategory))
                 {
-                    var error = $"Invalid category: {request.Category}. Valid categories are: Fiction, History, Child";
-                    logger.LogWarning(error);
-                    return Result<IReadOnlyList<BookDto>>.Failure(error);
+                    logger.LogWarning("Invalid category provided: {Category}", request.Category);
+                    return Result<IReadOnlyList<BookDto>>.Failure(DomainErrors.Book.InvalidCategory());
                 }
 
                 var books = await bookRepository.GetBooksByCategoryAsync(bookCategory, cancellationToken);
@@ -55,10 +54,15 @@ namespace LibSystem.Application.Usecases.Books.GetBooksByCategory
 
                 return Result<IReadOnlyList<BookDto>>.Success(bookDtos);
             }
+            catch (ArgumentException ex) when (ex.Message.Contains("category") || ex.Message.Contains("Category"))
+            {
+                logger.LogWarning(ex, "Invalid category provided: {Category}", request.Category);
+                return Result<IReadOnlyList<BookDto>>.Failure(DomainErrors.Book.InvalidCategory());
+            }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error retrieving books by category: {Category}", request.Category);
-                return Result<IReadOnlyList<BookDto>>.Failure("An error occurred while retrieving books by category.");
+                logger.LogError(ex, "Unexpected error retrieving books by category: {Category}", request.Category);
+                return Result<IReadOnlyList<BookDto>>.Failure(DomainErrors.General.UnexpectedError());
             }
         }
     }

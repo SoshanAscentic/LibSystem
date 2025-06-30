@@ -29,7 +29,7 @@ namespace LibSystem.Application.Usecases.Books.GetBooksByAuthor
             {
                 if (string.IsNullOrWhiteSpace(request.Author))
                 {
-                    return Result<IReadOnlyList<BookDto>>.Failure("Author name cannot be empty.");
+                    return Result<IReadOnlyList<BookDto>>.Failure(DomainErrors.Book.InvalidAuthor());
                 }
 
                 logger.LogInformation("Retrieving books by author: {Author}", request.Author);
@@ -41,10 +41,15 @@ namespace LibSystem.Application.Usecases.Books.GetBooksByAuthor
 
                 return Result<IReadOnlyList<BookDto>>.Success(bookDtos);
             }
+            catch (ArgumentException ex) when (ex.Message.Contains("author") || ex.Message.Contains("Author"))
+            {
+                logger.LogWarning(ex, "Invalid author provided: {Author}", request.Author);
+                return Result<IReadOnlyList<BookDto>>.Failure(DomainErrors.Book.InvalidAuthor());
+            }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error retrieving books by author: {Author}", request.Author);
-                return Result<IReadOnlyList<BookDto>>.Failure("An error occurred while retrieving books by author.");
+                logger.LogError(ex, "Unexpected error retrieving books by author: {Author}", request.Author);
+                return Result<IReadOnlyList<BookDto>>.Failure(DomainErrors.General.UnexpectedError());
             }
         }
     }

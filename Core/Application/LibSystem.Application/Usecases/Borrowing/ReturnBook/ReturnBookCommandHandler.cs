@@ -18,7 +18,7 @@ namespace LibSystem.Application.Usecases.Borrowing.ReturnBook
         private readonly IBookRepository bookRepository;
         private readonly IMemberRepository memberRepository;
         private readonly IBorrowingRepository borrowingRepository;
-        private readonly IUnitOfWork unitOfWork; 
+        private readonly IUnitOfWork unitOfWork;
         private readonly ILogger<ReturnBookCommandHandler> logger;
 
         public ReturnBookCommandHandler(
@@ -39,6 +39,17 @@ namespace LibSystem.Application.Usecases.Borrowing.ReturnBook
         {
             try
             {
+                // Validate input parameters
+                if (request.BookId <= 0)
+                {
+                    return Result<string>.Failure(DomainErrors.General.InvalidId("Book"));
+                }
+
+                if (request.MemberID <= 0)
+                {
+                    return Result<string>.Failure(DomainErrors.General.InvalidId("Member"));
+                }
+
                 logger.LogInformation("Processing return request - Book: {BookId}, Member: {MemberID}",
                     request.BookId, request.MemberID);
 
@@ -54,26 +65,24 @@ namespace LibSystem.Application.Usecases.Borrowing.ReturnBook
                     var book = await bookRepository.GetByIdAsync(bookId, cancellationToken);
                     if (book == null)
                     {
-                        var error = $"Book with ID {request.BookId} not found.";
-                        logger.LogWarning(error);
-                        return Result<string>.Failure(error);
+                        logger.LogWarning("Book not found for return: {BookId}", request.BookId);
+                        return Result<string>.Failure(DomainErrors.Book.NotFound(request.BookId));
                     }
 
                     var member = await memberRepository.GetByIdAsync(memberId, cancellationToken);
                     if (member == null)
                     {
-                        var error = $"Member with ID {request.MemberID} not found.";
-                        logger.LogWarning(error);
-                        return Result<string>.Failure(error);
+                        logger.LogWarning("Member not found for return: {MemberID}", request.MemberID);
+                        return Result<string>.Failure(DomainErrors.Member.NotFound(request.MemberID));
                     }
 
                     // Find active borrowing record
                     var borrowingRecord = await borrowingRepository.GetActiveBorrowingAsync(bookId, memberId, cancellationToken);
                     if (borrowingRecord == null)
                     {
-                        var error = $"No active borrowing found for book {request.BookId} by member {request.MemberID}.";
-                        logger.LogWarning(error);
-                        return Result<string>.Failure(error);
+                        logger.LogWarning("No active borrowing found for return - Book: {BookId}, Member: {MemberID}",
+                            request.BookId, request.MemberID);
+                        return Result<string>.Failure(DomainErrors.Borrowing.BookNotBorrowedByMember(request.BookId, request.MemberID));
                     }
 
                     // Execute business logic on domain entities
@@ -86,7 +95,7 @@ namespace LibSystem.Application.Usecases.Borrowing.ReturnBook
                     bookRepository.Update(book);
                     borrowingRepository.Update(borrowingRecord);
 
-                    //  Save all changes through UnitOfWork
+                    // Save all changes through UnitOfWork
                     await unitOfWork.SaveChangesAsync(cancellationToken);
 
                     // Commit transaction through UnitOfWork
@@ -105,26 +114,36 @@ namespace LibSystem.Application.Usecases.Borrowing.ReturnBook
                     throw;
                 }
             }
+            catch (InvalidBorrowingException ex) when (ex.Message.Contains("not currently borrowed") || ex.Message.Contains("not borrowed"))
+            {
+                logger.LogWarning(ex, "Book not currently borrowed by member");
+                return Result<string>.Failure(DomainErrors.Borrowing.BookNotBorrowedByMember(request.BookId, request.MemberID));
+            }
+            catch (InvalidBorrowingException ex) when (ex.Message.Contains("already returned") || ex.Message.Contains("returned"))
+            {
+                logger.LogWarning(ex, "Book already returned");
+                return Result<string>.Failure(DomainErrors.Borrowing.BookAlreadyReturned(request.BookId));
+            }
             catch (InvalidBorrowingException ex)
             {
-                logger.LogWarning(ex, "Business rule violation during return operation");
-                return Result<string>.Failure(ex.Message);
+                logger.LogWarning(ex, "Invalid borrowing operation during return");
+                return Result<string>.Failure(DomainErrors.Borrowing.InvalidBorrowingOperation());
             }
             catch (BookNotFoundException ex)
             {
                 logger.LogWarning(ex, "Book not found during return operation");
-                return Result<string>.Failure(ex.Message);
+                return Result<string>.Failure(DomainErrors.Book.NotFound(request.BookId));
             }
             catch (MemberNotFoundException ex)
             {
                 logger.LogWarning(ex, "Member not found during return operation");
-                return Result<string>.Failure(ex.Message);
+                return Result<string>.Failure(DomainErrors.Member.NotFound(request.MemberID));
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error processing return request - Book: {BookId}, Member: {MemberID}",
+                logger.LogError(ex, "Unexpected error processing return request - Book: {BookId}, Member: {MemberID}",
                     request.BookId, request.MemberID);
-                return Result<string>.Failure("An error occurred while returning the book.");
+                return Result<string>.Failure(DomainErrors.General.UnexpectedError());
             }
         }
     }

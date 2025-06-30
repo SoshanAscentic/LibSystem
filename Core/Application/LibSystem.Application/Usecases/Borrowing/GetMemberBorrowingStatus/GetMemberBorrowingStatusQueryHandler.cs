@@ -41,7 +41,7 @@ namespace LibSystem.Application.Usecases.Borrowing.GetMemberBorrowingStatus
             {
                 if (request.MemberId <= 0)
                 {
-                    return Result<BorrowingStatusDto>.Failure("Member ID must be positive.");
+                    return Result<BorrowingStatusDto>.Failure(DomainErrors.General.InvalidId("Member"));
                 }
 
                 logger.LogInformation("Retrieving borrowing status for member: {MemberId}", request.MemberId);
@@ -51,9 +51,8 @@ namespace LibSystem.Application.Usecases.Borrowing.GetMemberBorrowingStatus
 
                 if (member == null)
                 {
-                    var error = $"Member with ID {request.MemberId} was not found.";
-                    logger.LogWarning(error);
-                    return Result<BorrowingStatusDto>.Failure(error);
+                    logger.LogWarning("Member not found for borrowing status: {MemberId}", request.MemberId);
+                    return Result<BorrowingStatusDto>.Failure(DomainErrors.Member.NotFound(request.MemberId));
                 }
 
                 // Get borrowing status
@@ -88,10 +87,15 @@ namespace LibSystem.Application.Usecases.Borrowing.GetMemberBorrowingStatus
 
                 return Result<BorrowingStatusDto>.Success(borrowingStatus);
             }
+            catch (ArgumentException ex) when (ex.Message.Contains("ID") || ex.Message.Contains("positive"))
+            {
+                logger.LogWarning(ex, "Invalid member ID provided: {MemberId}", request.MemberId);
+                return Result<BorrowingStatusDto>.Failure(DomainErrors.General.InvalidId("Member"));
+            }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error retrieving borrowing status for member: {MemberId}", request.MemberId);
-                return Result<BorrowingStatusDto>.Failure("An error occurred while retrieving borrowing status.");
+                logger.LogError(ex, "Unexpected error retrieving borrowing status for member: {MemberId}", request.MemberId);
+                return Result<BorrowingStatusDto>.Failure(DomainErrors.General.UnexpectedError());
             }
         }
     }

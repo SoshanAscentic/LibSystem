@@ -35,7 +35,7 @@ namespace LibSystem.Application.Usecases.Members.GetMembersById
             {
                 if (request.MemberId <= 0)
                 {
-                    return Result<MemberDto>.Failure("Member ID must be positive.");
+                    return Result<MemberDto>.Failure(DomainErrors.General.InvalidId("Member"));
                 }
 
                 logger.LogInformation("Retrieving member with ID: {MemberId}", request.MemberId);
@@ -45,9 +45,8 @@ namespace LibSystem.Application.Usecases.Members.GetMembersById
 
                 if (member == null)
                 {
-                    var error = $"Member with ID {request.MemberId} was not found.";
-                    logger.LogWarning(error);
-                    return Result<MemberDto>.Failure(error);
+                    logger.LogWarning("Member not found: {MemberId}", request.MemberId);
+                    return Result<MemberDto>.Failure(DomainErrors.Member.NotFound(request.MemberId));
                 }
 
                 var memberDto = mapper.Map<MemberDto>(member);
@@ -56,10 +55,15 @@ namespace LibSystem.Application.Usecases.Members.GetMembersById
 
                 return Result<MemberDto>.Success(memberDto);
             }
+            catch (ArgumentException ex) when (ex.Message.Contains("ID") || ex.Message.Contains("positive"))
+            {
+                logger.LogWarning(ex, "Invalid member ID provided: {MemberId}", request.MemberId);
+                return Result<MemberDto>.Failure(DomainErrors.General.InvalidId("Member"));
+            }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error retrieving member with ID: {MemberId}", request.MemberId);
-                return Result<MemberDto>.Failure("An error occurred while retrieving the member.");
+                logger.LogError(ex, "Unexpected error retrieving member with ID: {MemberId}", request.MemberId);
+                return Result<MemberDto>.Failure(DomainErrors.General.UnexpectedError());
             }
         }
     }

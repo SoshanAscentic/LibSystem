@@ -33,6 +33,11 @@ namespace LibSystem.Application.Usecases.Members.AuthenticateMember
         {
             try
             {
+                if (request.MemberID <= 0)
+                {
+                    return Result<MemberDto>.Failure(DomainErrors.General.InvalidId("Member"));
+                }
+
                 logger.LogInformation("Authenticating member with ID: {MemberID}", request.MemberID);
 
                 var memberId = MemberId.Create(request.MemberID);
@@ -40,9 +45,8 @@ namespace LibSystem.Application.Usecases.Members.AuthenticateMember
 
                 if (member == null)
                 {
-                    var error = "Member not found. Please sign up first.";
-                    logger.LogWarning("Authentication failed for member ID: {MemberID}", request.MemberID);
-                    return Result<MemberDto>.Failure(error);
+                    logger.LogWarning("Authentication failed - member not found: {MemberID}", request.MemberID);
+                    return Result<MemberDto>.Failure(DomainErrors.Member.NotFound(request.MemberID));
                 }
 
                 var memberDto = mapper.Map<MemberDto>(member);
@@ -51,10 +55,15 @@ namespace LibSystem.Application.Usecases.Members.AuthenticateMember
 
                 return Result<MemberDto>.Success(memberDto);
             }
+            catch (ArgumentException ex) when (ex.Message.Contains("ID") || ex.Message.Contains("positive"))
+            {
+                logger.LogWarning(ex, "Invalid member ID provided: {MemberID}", request.MemberID);
+                return Result<MemberDto>.Failure(DomainErrors.General.InvalidId("Member"));
+            }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error during authentication for member ID: {MemberID}", request.MemberID);
-                return Result<MemberDto>.Failure("An error occurred during authentication.");
+                logger.LogError(ex, "Unexpected error during authentication for member ID: {MemberID}", request.MemberID);
+                return Result<MemberDto>.Failure(DomainErrors.General.UnexpectedError());
             }
         }
     }

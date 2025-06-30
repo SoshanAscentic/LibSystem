@@ -17,18 +17,18 @@ namespace LibSystem.Application.Usecases.Books.DeleteBook
     {
         private readonly IBookRepository bookRepository;
         private readonly IBorrowingRepository borrowingRepository;
-        private readonly IUnitOfWork unitOfWork; 
+        private readonly IUnitOfWork unitOfWork;
         private readonly ILogger<DeleteBookCommandHandler> logger;
 
         public DeleteBookCommandHandler(
             IBookRepository bookRepository,
             IBorrowingRepository borrowingRepository,
-            IUnitOfWork unitOfWork, 
+            IUnitOfWork unitOfWork,
             ILogger<DeleteBookCommandHandler> logger)
         {
             this.bookRepository = bookRepository;
             this.borrowingRepository = borrowingRepository;
-            this.unitOfWork = unitOfWork; 
+            this.unitOfWork = unitOfWork;
             this.logger = logger;
         }
 
@@ -36,6 +36,11 @@ namespace LibSystem.Application.Usecases.Books.DeleteBook
         {
             try
             {
+                if (request.BookId <= 0)
+                {
+                    return Result.Failure(DomainErrors.General.InvalidId("Book"));
+                }
+
                 logger.LogInformation("Attempting to delete book with ID: {BookId}", request.BookId);
 
                 var bookId = BookId.Create(request.BookId);
@@ -43,24 +48,22 @@ namespace LibSystem.Application.Usecases.Books.DeleteBook
 
                 if (book == null)
                 {
-                    var error = $"Book with ID {request.BookId} was not found.";
-                    logger.LogWarning(error);
-                    return Result.Failure(error);
+                    logger.LogWarning("Book not found for deletion: {BookId}", request.BookId);
+                    return Result.Failure(DomainErrors.Book.NotFound(request.BookId));
                 }
 
                 // Business rule: Cannot delete books that are currently borrowed
                 var isCurrentlyBorrowed = await borrowingRepository.IsBookCurrentlyBorrowedAsync(bookId, cancellationToken);
                 if (isCurrentlyBorrowed)
                 {
-                    var error = $"Cannot delete book '{book.Title}' as it is currently borrowed.";
-                    logger.LogWarning(error);
-                    return Result.Failure(error);
+                    logger.LogWarning("Cannot delete currently borrowed book: {Title} (ID: {BookId})", book.Title, request.BookId);
+                    return Result.Failure(DomainErrors.Book.CurrentlyBorrowed(book.Title));
                 }
 
                 // Delete the book (stages the change)
                 bookRepository.Remove(book);
 
-                //Save through UnitOfWork instead of repository
+                // Save through UnitOfWork
                 await unitOfWork.SaveChangesAsync(cancellationToken);
 
                 logger.LogInformation("Successfully deleted book: {Title} (ID: {BookId})", book.Title, book.BookId.Value);
@@ -70,12 +73,17 @@ namespace LibSystem.Application.Usecases.Books.DeleteBook
             catch (BookNotFoundException ex)
             {
                 logger.LogWarning(ex, "Book not found for deletion: {BookId}", request.BookId);
-                return Result.Failure(ex.Message);
+                return Result.Failure(DomainErrors.Book.NotFound(request.BookId));
+            }
+            catch (ArgumentException ex) when (ex.Message.Contains("ID") || ex.Message.Contains("positive"))
+            {
+                logger.LogWarning(ex, "Invalid book ID provided: {BookId}", request.BookId);
+                return Result.Failure(DomainErrors.General.InvalidId("Book"));
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error deleting book with ID: {BookId}", request.BookId);
-                return Result.Failure("An error occurred while deleting the book.");
+                logger.LogError(ex, "Unexpected error deleting book with ID: {BookId}", request.BookId);
+                return Result.Failure(DomainErrors.General.UnexpectedError());
             }
         }
     }
