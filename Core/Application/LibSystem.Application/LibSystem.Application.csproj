@@ -18,8 +18,4 @@
     <ProjectReference Include="..\..\Domain\LibSystem.Domain\LibSystem.Domain.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Common\Interfaces\" />
-  </ItemGroup>
-
 </Project>
