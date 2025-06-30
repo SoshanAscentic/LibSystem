@@ -10,10 +10,11 @@ namespace LibSystem.Domain.ValueObjects
     public sealed class BookId : ValueObject
     {
         public int Value { get; private set; }
+
         public BookId(int value)
         {
-            if (value <= 0)
-                throw new ArgumentOutOfRangeException(nameof(value), "Book ID must be a positive integer.");
+            if (value < 0) // Changed: Allow 0 for new entities
+                throw new ArgumentOutOfRangeException(nameof(value), "Book ID cannot be negative.");
             Value = value;
         }
 
@@ -25,12 +26,13 @@ namespace LibSystem.Domain.ValueObjects
             return new BookId(value);
         }
 
-        public static BookId CreateNew() => new(0); //For new entities beore persistence
+        public static BookId CreateNew() => new(0); //For new entities before persistence
 
         protected override IEnumerable<object> GetEqualityComponents()
         {
             yield return Value;
         }
+
         public static implicit operator int(BookId bookId) => bookId.Value;
         public static explicit operator BookId(int value) => Create(value);
 

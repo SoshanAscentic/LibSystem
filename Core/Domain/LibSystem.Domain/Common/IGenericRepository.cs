@@ -25,11 +25,5 @@ namespace LibSystem.Domain.Common
         void UpdateRange(IEnumerable<T> entities);
         void Remove(T entity);
         void RemoveRange(IEnumerable<T> entities);
-
-        // Unit of work operations
-        Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
-        Task BeginTransactionAsync();
-        Task CommitTransactionAsync();
-        Task RollbackTransactionAsync();
     }
 }

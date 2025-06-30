@@ -16,51 +16,55 @@ namespace LibSystem.Persistence.Configurations
         {
             builder.ToTable("BorrowingRecords");
 
-            // Configrution primary key using the base entity Id
+            // PRIMARY KEY: Use base entity Id (hidden from domain)
             builder.HasKey(br => br.Id);
+            builder.Property(br => br.Id)
+                .ValueGeneratedOnAdd()
+                .HasColumnName("Id");
 
-            //Configure BorrowingId value object mapping
+            // DOMAIN ID: Map to separate column, sync with base Id
             builder.Property(br => br.BorrowingId)
                 .HasConversion(
-                    borrowingId => borrowingId.Value,              
-                    value => BorrowingId.Create(value)) //Converting from int to BorrowingId value object
-                .HasColumnName("BorrowingId")
-                .ValueGeneratedOnAdd();
+                    borrowingId => borrowingId.Value,
+                    value => value > 0 ? BorrowingId.Create(value) : BorrowingId.CreateNew())
+                .HasColumnName("BorrowingId") // ✅ Separate column
+                .ValueGeneratedNever();
 
-            // Configure BookId value object as foreign key
+            // Foreign Keys - reference the domain ID columns
             builder.Property(br => br.BookId)
                 .HasConversion(
-                    bookId => bookId.Value,               
-                    value => BookId.Create(value))        
+                    bookId => bookId.Value,
+                    value => BookId.Create(value))
                 .HasColumnName("BookId")
                 .IsRequired();
 
-            // Configure MemberId value object as foreign key
             builder.Property(br => br.MemberId)
                 .HasConversion(
-                    memberId => memberId.Value,           
+                    memberId => memberId.Value,
                     value => MemberId.Create(value))
                 .HasColumnName("MemberId")
                 .IsRequired();
 
-
-            // Configure BorrowedAt timestamp
+            // Timestamps
             builder.Property(br => br.BorrowedAt)
                 .HasColumnName("BorrowedAt")
                 .HasColumnType("datetime2")
                 .IsRequired();
 
-            // Configure ReturnedAt nullable timestamp
             builder.Property(br => br.ReturnedAt)
                 .HasColumnName("ReturnedAt")
                 .HasColumnType("datetime2")
                 .IsRequired(false);
 
-
-            // These are computed properties that don't need database storage
+            // Ignore computed properties
             builder.Ignore(br => br.IsActive);
             builder.Ignore(br => br.BorrowDuration);
             builder.Ignore(br => br.DaysBorrowed);
+
+            // Indexes
+            builder.HasIndex(br => br.BorrowingId)
+                .IsUnique()
+                .HasDatabaseName("IX_BorrowingRecords_BorrowingId");
 
             builder.HasIndex(br => br.BookId)
                 .HasDatabaseName("IX_BorrowingRecords_BookId");
@@ -74,21 +78,13 @@ namespace LibSystem.Persistence.Configurations
             builder.HasIndex(br => br.ReturnedAt)
                 .HasDatabaseName("IX_BorrowingRecords_ReturnedAt");
 
-            builder.HasIndex(br => new { br.BookId, br.MemberId, br.ReturnedAt })
-                .HasDatabaseName("IX_BorrowingRecords_Active");
+            // Unique constraint for active borrowings
+            builder.HasIndex(br => new { br.BookId, br.MemberId })
+                .IsUnique()
+                .HasFilter("[ReturnedAt] IS NULL")
+                .HasDatabaseName("UQ_BorrowingRecords_Active");
 
-            builder.HasIndex(br => new { br.BorrowedAt, br.ReturnedAt })
-                .HasDatabaseName("IX_BorrowingRecords_Duration");
-
-
-            /*// Ensure BorrowedAt is not in the future
-            builder.HasCheckConstraint("CK_BorrowingRecords_BorrowedAt",
-                "[BorrowedAt] <= GETUTCDATE()");
-
-            // Ensure ReturnedAt is not before BorrowedAt (when not null)
-            builder.HasCheckConstraint("CK_BorrowingRecords_ReturnedAt",
-                "[ReturnedAt] IS NULL OR [ReturnedAt] >= [BorrowedAt]");*/
-
+            // Check constraints
             builder.ToTable("BorrowingRecords", tb =>
             {
                 tb.HasCheckConstraint("CK_BorrowingRecords_BorrowedAt",
@@ -98,16 +94,7 @@ namespace LibSystem.Persistence.Configurations
                     "[ReturnedAt] IS NULL OR [ReturnedAt] >= [BorrowedAt]");
             });
 
-
-
-            // Unique constraint to prevent duplicate active borrowings
-            // (same book cannot be borrowed by same member multiple times simultaneously)
-            builder.HasIndex(br => new { br.BookId, br.MemberId })
-                .IsUnique()
-                .HasFilter("[ReturnedAt] IS NULL")  // Only apply to active borrowings
-                .HasDatabaseName("UQ_BorrowingRecords_Active");
-
-            // Configure audit fields from BaseEntity
+            // Audit fields
             builder.Property(br => br.CreatedAt)
                 .IsRequired()
                 .HasDefaultValueSql("GETUTCDATE()");
@@ -116,12 +103,7 @@ namespace LibSystem.Persistence.Configurations
                 .IsRequired()
                 .HasDefaultValueSql("GETUTCDATE()");
 
-
-            // Ignore domain events collection as it's not persisted
             builder.Ignore(br => br.DomainEvents);
-
-
-
         }
     }
 }

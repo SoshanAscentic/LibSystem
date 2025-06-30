@@ -14,81 +14,75 @@ namespace LibSystem.Persistence.Configurations
     {
         public void Configure(EntityTypeBuilder<Book> builder)
         {
-
             builder.ToTable("Books");
 
-
-            // Configure composite primary key using the domain BookId value object
+            // PRIMARY KEY: Use base entity Id (hidden from domain)
             builder.HasKey(b => b.Id);
+            builder.Property(b => b.Id)
+                .ValueGeneratedOnAdd()
+                .HasColumnName("Id");
 
-            // Configure BookId value object as a separate property
+            // DOMAIN ID: Map to separate column, sync with base Id
             builder.Property(b => b.BookId)
                 .HasConversion(
-                    bookId => bookId.Value,              
-                    value => BookId.Create(value))       
-                .HasColumnName("BookId")
-                .ValueGeneratedOnAdd();                  
+                    bookId => bookId.Value,
+                    value => value > 0 ? BookId.Create(value) : BookId.CreateNew())
+                .HasColumnName("BookId") // ✅ Separate column
+                .ValueGeneratedNever();
 
-
-            // Title property with validation constraints
+            // Title property
             builder.Property(b => b.Title)
                 .IsRequired()
                 .HasMaxLength(200)
                 .HasColumnName("Title");
 
-            // Author property with validation constraints
+            // Author property
             builder.Property(b => b.Author)
                 .IsRequired()
                 .HasMaxLength(100)
                 .HasColumnName("Author");
 
-            // PublicationYear value object configuration
+            // PublicationYear value object - store as simple int
             builder.Property(b => b.PublicationYear)
                 .HasConversion(
-                    year => year.Value,                   
-                    value => PublicationYear.Create(value)) 
+                    year => year.Value,
+                    value => PublicationYear.Create(value))
                 .HasColumnName("PublicationYear")
                 .IsRequired();
 
-            // Category enum configuration
+            // Category enum
             builder.Property(b => b.Category)
-                .HasConversion<int>()                     
+                .HasConversion<int>()
                 .HasColumnName("Category")
                 .IsRequired();
 
-            // IsAvailable boolean property
+            // IsAvailable boolean
             builder.Property(b => b.IsAvailable)
                 .HasColumnName("IsAvailable")
-                .HasDefaultValue(true)                    
+                .HasDefaultValue(true)
                 .IsRequired();
 
-
-
-            // Index on Author for author-based searches
+            // Indexes
             builder.HasIndex(b => b.Author)
                 .HasDatabaseName("IX_Books_Author");
 
-            // Index on Category for category-based searches
             builder.HasIndex(b => b.Category)
                 .HasDatabaseName("IX_Books_Category");
 
-            // Index on IsAvailable for availability searches
             builder.HasIndex(b => b.IsAvailable)
                 .HasDatabaseName("IX_Books_IsAvailable");
 
-            // Composite index for title and year searches (supports duplicate detection)
-            builder.HasIndex(b => new { b.Title, b.PublicationYear })
-                .HasDatabaseName("IX_Books_Title_PublicationYear");
-
-
-
-            // Ensure title and publication year combination is unique (business rule)
-            builder.HasIndex(b => new { b.Title, b.PublicationYear })
+            builder.HasIndex(b => b.BookId)
                 .IsUnique()
+                .HasDatabaseName("IX_Books_BookId");
+
+            // Business rule: Unique title + year combination
+            builder.HasIndex(b => new { b.Title, b.PublicationYear })
+                .IsUnique() 
                 .HasDatabaseName("UQ_Books_Title_Year");
 
 
-            // Seed initial data for development and testing
+            // Seed initial data for development and testing - KEEP DYNAMIC VALUES
             builder.HasData(
                 new
                 {
@@ -99,8 +93,8 @@ namespace LibSystem.Persistence.Configurations
                     PublicationYear = PublicationYear.Create(1925),
                     Category = Book.BookCategory.Fiction,
                     IsAvailable = true,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
+                    CreatedAt = DateTime.UtcNow, // Keep dynamic
+                    UpdatedAt = DateTime.UtcNow  // Keep dynamic
                 },
                 new
                 {
@@ -111,8 +105,8 @@ namespace LibSystem.Persistence.Configurations
                     PublicationYear = PublicationYear.Create(1960),
                     Category = Book.BookCategory.Fiction,
                     IsAvailable = true,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
+                    CreatedAt = DateTime.UtcNow, // Keep dynamic
+                    UpdatedAt = DateTime.UtcNow  // Keep dynamic
                 },
                 new
                 {
@@ -123,8 +117,8 @@ namespace LibSystem.Persistence.Configurations
                     PublicationYear = PublicationYear.Create(1949),
                     Category = Book.BookCategory.Fiction,
                     IsAvailable = true,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
+                    CreatedAt = DateTime.UtcNow, // Keep dynamic
+                    UpdatedAt = DateTime.UtcNow  // Keep dynamic
                 },
                 new
                 {
@@ -135,8 +129,8 @@ namespace LibSystem.Persistence.Configurations
                     PublicationYear = PublicationYear.Create(1988),
                     Category = Book.BookCategory.History,
                     IsAvailable = true,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
+                    CreatedAt = DateTime.UtcNow, // Keep dynamic
+                    UpdatedAt = DateTime.UtcNow  // Keep dynamic
                 },
                 new
                 {
@@ -147,8 +141,8 @@ namespace LibSystem.Persistence.Configurations
                     PublicationYear = PublicationYear.Create(1969),
                     Category = Book.BookCategory.Child,
                     IsAvailable = true,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
+                    CreatedAt = DateTime.UtcNow, // Keep dynamic
+                    UpdatedAt = DateTime.UtcNow  // Keep dynamic
                 }
             );
 
