@@ -35,7 +35,7 @@ namespace LibSystem.Application.Usecases.Books.GetBookById
             {
                 if (request.BookId <= 0)
                 {
-                    return Result<BookDto>.Failure("Book ID must be positive.");
+                    return Result<BookDto>.Failure(DomainErrors.General.InvalidId("Book"));
                 }
 
                 logger.LogInformation("Retrieving book with ID: {BookId}", request.BookId);
@@ -45,9 +45,8 @@ namespace LibSystem.Application.Usecases.Books.GetBookById
 
                 if (book == null)
                 {
-                    var error = $"Book with ID {request.BookId} was not found.";
-                   logger.LogWarning(error);
-                    return Result<BookDto>.Failure(error);
+                    logger.LogWarning("Book not found: {BookId}", request.BookId);
+                    return Result<BookDto>.Failure(DomainErrors.Book.NotFound(request.BookId));
                 }
 
                 var bookDto = mapper.Map<BookDto>(book);
@@ -59,7 +58,7 @@ namespace LibSystem.Application.Usecases.Books.GetBookById
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error retrieving book with ID: {BookId}", request.BookId);
-                return Result<BookDto>.Failure("An error occurred while retrieving the book.");
+                return Result<BookDto>.Failure(DomainErrors.General.UnexpectedError());
             }
         }
     }

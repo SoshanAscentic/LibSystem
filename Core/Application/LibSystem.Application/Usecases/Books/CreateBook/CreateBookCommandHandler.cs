@@ -18,18 +18,18 @@ namespace LibSystem.Application.Usecases.Books.CreateBook
     public class CreateBookCommandHandler : IRequestHandler<CreateBookCommand, Result<BookDto>>
     {
         private readonly IBookRepository bookRepository;
-        private readonly IUnitOfWork unitOfWork; 
+        private readonly IUnitOfWork unitOfWork;
         private readonly IMapper mapper;
         private readonly ILogger<CreateBookCommandHandler> logger;
 
         public CreateBookCommandHandler(
             IBookRepository bookRepository,
-            IUnitOfWork unitOfWork, 
+            IUnitOfWork unitOfWork,
             IMapper mapper,
             ILogger<CreateBookCommandHandler> logger)
         {
             this.bookRepository = bookRepository;
-            this.unitOfWork = unitOfWork; 
+            this.unitOfWork = unitOfWork;
             this.mapper = mapper;
             this.logger = logger;
         }
@@ -46,9 +46,8 @@ namespace LibSystem.Application.Usecases.Books.CreateBook
 
                 if (existingBook != null)
                 {
-                    var error = $"A book with title '{request.Title}' and publication year {request.PublicationYear} already exists.";
-                    logger.LogWarning(error);
-                    return Result<BookDto>.Failure(error);
+                    logger.LogWarning("Duplicate book creation attempted: {Title} ({Year})", request.Title, request.PublicationYear);
+                    return Result<BookDto>.Failure(DomainErrors.Book.AlreadyExists(request.Title, request.PublicationYear));
                 }
 
                 // Create new book using domain factory method
@@ -61,7 +60,7 @@ namespace LibSystem.Application.Usecases.Books.CreateBook
                 // Add to repository (stages the change)
                 await bookRepository.AddAsync(book, cancellationToken);
 
-                // Save through UnitOfWork instead of repository
+                // Save through UnitOfWork
                 await unitOfWork.SaveChangesAsync(cancellationToken);
 
                 // Map to DTO and return success result
@@ -74,12 +73,27 @@ namespace LibSystem.Application.Usecases.Books.CreateBook
             catch (DuplicateBookException ex)
             {
                 logger.LogWarning(ex, "Duplicate book creation attempted");
-                return Result<BookDto>.Failure(ex.Message);
+                return Result<BookDto>.Failure(DomainErrors.Book.AlreadyExists(request.Title, request.PublicationYear));
+            }
+            catch (ArgumentException ex) when (ex.Message.Contains("title"))
+            {
+                logger.LogWarning(ex, "Invalid title provided");
+                return Result<BookDto>.Failure(DomainErrors.Book.InvalidTitle());
+            }
+            catch (ArgumentException ex) when (ex.Message.Contains("author"))
+            {
+                logger.LogWarning(ex, "Invalid author provided");
+                return Result<BookDto>.Failure(DomainErrors.Book.InvalidAuthor());
+            }
+            catch (ArgumentException ex) when (ex.Message.Contains("publication"))
+            {
+                logger.LogWarning(ex, "Invalid publication year provided");
+                return Result<BookDto>.Failure(DomainErrors.Book.InvalidPublicationYear());
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error creating book: {Title} by {Author}", request.Title, request.Author);
-                return Result<BookDto>.Failure("An error occurred while creating the book.");
+                return Result<BookDto>.Failure(DomainErrors.General.UnexpectedError());
             }
         }
     }

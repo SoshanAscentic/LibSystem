@@ -17,13 +17,13 @@ namespace LibSystem.Application.Usecases.Members.CreateMember
     public class CreateMemberCommandHandler : IRequestHandler<CreateMemberCommand, Result<MemberDto>>
     {
         private readonly IMemberRepository memberRepository;
-        private readonly IUnitOfWork unitOfWork; 
+        private readonly IUnitOfWork unitOfWork;
         private readonly IMapper mapper;
         private readonly ILogger<CreateMemberCommandHandler> logger;
 
         public CreateMemberCommandHandler(
             IMemberRepository memberRepository,
-            IUnitOfWork unitOfWork, 
+            IUnitOfWork unitOfWork,
             IMapper mapper,
             ILogger<CreateMemberCommandHandler> logger)
         {
@@ -38,6 +38,18 @@ namespace LibSystem.Application.Usecases.Members.CreateMember
             try
             {
                 logger.LogInformation("Creating member: {Name}, Type: {MemberType}", request.Name, request.MemberType);
+
+                // Validate member type
+                if (request.MemberType < 0 || request.MemberType > 2)
+                {
+                    return Result<MemberDto>.Failure(DomainErrors.Member.InvalidMemberType());
+                }
+
+                // Validate name
+                if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Length > 100)
+                {
+                    return Result<MemberDto>.Failure(DomainErrors.Member.InvalidName());
+                }
 
                 // Create member using factory method
                 var member = CreateMemberByType(request.Name.Trim(), request.MemberType);
@@ -55,15 +67,20 @@ namespace LibSystem.Application.Usecases.Members.CreateMember
 
                 return Result<MemberDto>.Success(memberDto);
             }
+            catch (ArgumentException ex) when (ex.Message.Contains("name"))
+            {
+                logger.LogWarning(ex, "Invalid member name provided");
+                return Result<MemberDto>.Failure(DomainErrors.Member.InvalidName());
+            }
             catch (ArgumentException ex)
             {
                 logger.LogWarning(ex, "Invalid member data provided");
-                return Result<MemberDto>.Failure(ex.Message);
+                return Result<MemberDto>.Failure(DomainErrors.Member.InvalidMemberType());
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error creating member: {Name}, Type: {MemberType}", request.Name, request.MemberType);
-                return Result<MemberDto>.Failure("An error occurred while creating the member.");
+                return Result<MemberDto>.Failure(DomainErrors.General.UnexpectedError());
             }
         }
 
