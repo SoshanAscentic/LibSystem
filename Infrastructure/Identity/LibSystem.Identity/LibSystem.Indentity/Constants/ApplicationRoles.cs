@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace LibSystem.Infrastructure.Identity.Constants
+namespace LibSystem.Identity.Constants
 {
     public static class ApplicationRoles
     {
@@ -21,7 +21,7 @@ namespace LibSystem.Infrastructure.Identity.Constants
             Administrator
         };
 
-        public static readonly Dictionary <string, string> RoleDescriptions = new ()
+        public static readonly Dictionary<string, string> RoleDescriptions = new()
         {
             { Member, "Regular library member with borrowing privileges." },
             { MinorStaff, "Staff member with limited administrative capabilities." },

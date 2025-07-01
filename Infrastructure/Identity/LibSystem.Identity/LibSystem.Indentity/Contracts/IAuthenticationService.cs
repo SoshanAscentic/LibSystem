@@ -1,12 +1,12 @@
 ﻿using LibSystem.Application.Common.Models;
-using LibSystem.Infrastructure.Identity.DTOs;
+using LibSystem.Identity.DTOs;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace LibSystem.Infrastructure.Identity.Contracts
+namespace LibSystem.Identity.Contracts
 {
     public interface IAuthenticationService
     {

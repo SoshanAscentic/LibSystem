@@ -1,6 +1,7 @@
 ﻿using LibSystem.Api.Endpoints;
 using LibSystem.Api.Middleware;
 using LibSystem.Application;
+using LibSystem.Identity;
 using LibSystem.Persistence;
 using LibSystem.Persistence.Context;
 using LibSystem.Utils.Extensions;
@@ -61,7 +62,7 @@ namespace LibSystem.Api
             // Add Utils services (including Serilog)
             builder.Services.AddUtilsServices(builder.Configuration, builder.Environment);
 
-            // Add Swagger
+            // Add Swagger with JWT support
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(options =>
             {
@@ -69,7 +70,33 @@ namespace LibSystem.Api
                 {
                     Title = "Library System API",
                     Version = "v1",
-                    Description = "A comprehensive library management system API built with Clean Architecture, DDD, and CQRS patterns"
+                    Description = "A comprehensive library management system API built with Clean Architecture, DDD, CQRS, and JWT authentication"
+                });
+
+                // Add JWT authentication to Swagger
+                options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+                {
+                    Name = "Authorization",
+                    Type = SecuritySchemeType.Http,
+                    Scheme = "bearer",
+                    BearerFormat = "JWT",
+                    In = ParameterLocation.Header,
+                    Description = "Enter 'Bearer' [space] and then your valid token in the text input below.\r\n\r\nExample: \"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\""
+                });
+
+                options.AddSecurityRequirement(new OpenApiSecurityRequirement
+                {
+                    {
+                        new OpenApiSecurityScheme
+                        {
+                            Reference = new OpenApiReference
+                            {
+                                Type = ReferenceType.SecurityScheme,
+                                Id = "Bearer"
+                            }
+                        },
+                        Array.Empty<string>()
+                    }
                 });
             });
 
@@ -81,6 +108,14 @@ namespace LibSystem.Api
                     policy.AllowAnyOrigin()
                           .AllowAnyMethod()
                           .AllowAnyHeader();
+                });
+
+                options.AddPolicy("Production", policy =>
+                {
+                    policy.WithOrigins("")
+                          .AllowAnyMethod()
+                          .AllowAnyHeader()
+                          .AllowCredentials();
                 });
             });
 
@@ -97,6 +132,12 @@ namespace LibSystem.Api
                     limiterOptions.PermitLimit = 100;
                     limiterOptions.Window = TimeSpan.FromMinutes(1);
                 });
+
+                options.AddFixedWindowLimiter("auth", limiterOptions =>
+                {
+                    limiterOptions.PermitLimit = 10; // Stricter limit for auth endpoints
+                    limiterOptions.Window = TimeSpan.FromMinutes(1);
+                });
             });
 
             // Register Application Layer services
@@ -104,6 +145,9 @@ namespace LibSystem.Api
 
             // Register Infrastructure Layer services
             builder.Services.AddPersistenceServices(builder.Configuration);
+
+            // Register Identity Layer services
+            builder.Services.AddIdentityServices(builder.Configuration);
         }
 
         private static void ConfigureMiddleware(WebApplication app)

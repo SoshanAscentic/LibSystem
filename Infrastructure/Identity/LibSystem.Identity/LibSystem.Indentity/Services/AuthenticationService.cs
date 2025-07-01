@@ -1,18 +1,18 @@
 ﻿using LibSystem.Application.Common.Models;
 using LibSystem.Application.Contracts.Repositories;
 using LibSystem.Domain.Entities.Members;
-using LibSystem.Infrastructure.Identity.Constants;
-using LibSystem.Infrastructure.Identity.Contracts;
-using LibSystem.Infrastructure.Identity.DTOs;
-using LibSystem.Infrastructure.Identity.Models;
-using Microsoft.AspNetCore.Authentication;
+using LibSystem.Identity.Constants;
+using LibSystem.Identity.Contracts;
+using LibSystem.Identity.DTOs;
+using LibSystem.Identity.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging;
 using System.Security.Claims;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
 namespace LibSystem.Identity.Services
 {
-    public class AuthenticationService : Infrastructure.Identity.Contracts.IAuthenticationService
+    public class AuthenticationService : IAuthenticationService
     {
         private readonly UserManager<ApplicationUser> userManager;
         private readonly SignInManager<ApplicationUser> signInManager;

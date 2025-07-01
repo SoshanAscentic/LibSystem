@@ -1,14 +1,15 @@
-﻿using LibSystem.Infrastructure.Identity.Models;
+﻿using LibSystem.Identity.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.VisualBasic;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace LibSystem.Infrastructure.Identity.Context
+namespace LibSystem.Identity.Context
 {
     public class IdentityDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, int>
     {

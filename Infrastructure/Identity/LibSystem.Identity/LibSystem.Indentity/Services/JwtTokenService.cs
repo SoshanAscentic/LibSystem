@@ -1,7 +1,7 @@
 ﻿using LibSystem.Application.Common.Models;
-using LibSystem.Infrastructure.Identity.Configuration;
-using LibSystem.Infrastructure.Identity.Contracts;
-using LibSystem.Infrastructure.Identity.Models;
+using LibSystem.Identity.Configuration;
+using LibSystem.Identity.Contracts;
+using LibSystem.Identity.Models;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;

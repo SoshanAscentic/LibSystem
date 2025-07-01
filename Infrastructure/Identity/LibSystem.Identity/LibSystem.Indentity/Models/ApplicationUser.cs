@@ -1,4 +1,4 @@
-﻿using LibSystem.Infrastructure.Identity.Constants;
+﻿using LibSystem.Identity.Constants;
 using Microsoft.AspNetCore.Identity;
 using System;
 using System.Collections.Generic;
@@ -7,7 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace LibSystem.Infrastructure.Identity.Models
+namespace LibSystem.Identity.Models
 {
     public class ApplicationUser : IdentityUser<int>
     {

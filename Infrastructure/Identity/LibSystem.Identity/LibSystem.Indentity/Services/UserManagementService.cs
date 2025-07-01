@@ -1,7 +1,7 @@
 ﻿using LibSystem.Application.Common.Models;
-using LibSystem.Infrastructure.Identity.Contracts;
-using LibSystem.Infrastructure.Identity.DTOs;
-using LibSystem.Infrastructure.Identity.Models;
+using LibSystem.Identity.Contracts;
+using LibSystem.Identity.DTOs;
+using LibSystem.Identity.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -20,8 +20,8 @@ namespace LibSystem.Infrastructure.Identity.Services
         private readonly ILogger<UserManagementService> logger;
 
         public UserManagementService(
-            UserManager<ApplicationUser> userManager, 
-            RoleManager<IdentityRole> roleManager, 
+            UserManager<ApplicationUser> userManager,
+            RoleManager<IdentityRole> roleManager,
             ILogger<UserManagementService> logger)
         {
             this.userManager = userManager;

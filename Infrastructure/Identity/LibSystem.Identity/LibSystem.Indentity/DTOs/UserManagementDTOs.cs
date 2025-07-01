@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace LibSystem.Infrastructure.Identity.DTOs
+namespace LibSystem.Identity.DTOs
 {
     public class UserDto
     {

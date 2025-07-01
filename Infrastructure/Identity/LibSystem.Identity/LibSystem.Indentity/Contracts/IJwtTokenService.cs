@@ -1,5 +1,5 @@
 ﻿using LibSystem.Application.Common.Models;
-using LibSystem.Infrastructure.Identity.Models;
+using LibSystem.Identity.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,7 +7,7 @@ using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace LibSystem.Infrastructure.Identity.Contracts
+namespace LibSystem.Identity.Contracts
 {
     public interface IJwtTokenService
     {
