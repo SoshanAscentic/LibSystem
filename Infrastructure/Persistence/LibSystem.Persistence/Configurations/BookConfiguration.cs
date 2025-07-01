@@ -82,7 +82,7 @@ namespace LibSystem.Persistence.Configurations
                 .HasDatabaseName("UQ_Books_Title_Year");
 
 
-            // Seed initial data for development and testing - KEEP DYNAMIC VALUES
+            // Seed initial data for development and testing
             builder.HasData(
                 new
                 {
@@ -93,8 +93,8 @@ namespace LibSystem.Persistence.Configurations
                     PublicationYear = PublicationYear.Create(1925),
                     Category = Book.BookCategory.Fiction,
                     IsAvailable = true,
-                    CreatedAt = DateTime.UtcNow, // Keep dynamic
-                    UpdatedAt = DateTime.UtcNow  // Keep dynamic
+                    CreatedAt = DateTime.UtcNow, 
+                    UpdatedAt = DateTime.UtcNow 
                 },
                 new
                 {
@@ -105,8 +105,8 @@ namespace LibSystem.Persistence.Configurations
                     PublicationYear = PublicationYear.Create(1960),
                     Category = Book.BookCategory.Fiction,
                     IsAvailable = true,
-                    CreatedAt = DateTime.UtcNow, // Keep dynamic
-                    UpdatedAt = DateTime.UtcNow  // Keep dynamic
+                    CreatedAt = DateTime.UtcNow, 
+                    UpdatedAt = DateTime.UtcNow  
                 },
                 new
                 {
@@ -117,8 +117,8 @@ namespace LibSystem.Persistence.Configurations
                     PublicationYear = PublicationYear.Create(1949),
                     Category = Book.BookCategory.Fiction,
                     IsAvailable = true,
-                    CreatedAt = DateTime.UtcNow, // Keep dynamic
-                    UpdatedAt = DateTime.UtcNow  // Keep dynamic
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow  
                 },
                 new
                 {
@@ -129,8 +129,8 @@ namespace LibSystem.Persistence.Configurations
                     PublicationYear = PublicationYear.Create(1988),
                     Category = Book.BookCategory.History,
                     IsAvailable = true,
-                    CreatedAt = DateTime.UtcNow, // Keep dynamic
-                    UpdatedAt = DateTime.UtcNow  // Keep dynamic
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow 
                 },
                 new
                 {
@@ -141,8 +141,8 @@ namespace LibSystem.Persistence.Configurations
                     PublicationYear = PublicationYear.Create(1969),
                     Category = Book.BookCategory.Child,
                     IsAvailable = true,
-                    CreatedAt = DateTime.UtcNow, // Keep dynamic
-                    UpdatedAt = DateTime.UtcNow  // Keep dynamic
+                    CreatedAt = DateTime.UtcNow, 
+                    UpdatedAt = DateTime.UtcNow  
                 }
             );
 
