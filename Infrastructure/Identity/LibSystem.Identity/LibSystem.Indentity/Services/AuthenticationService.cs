@@ -1,18 +1,17 @@
 ﻿using LibSystem.Application.Common.Models;
 using LibSystem.Application.Contracts.Repositories;
+using LibSystem.Application.DTOs.Identity;
 using LibSystem.Domain.Entities.Members;
 using LibSystem.Identity.Constants;
 using LibSystem.Identity.Contracts;
-using LibSystem.Identity.DTOs;
 using LibSystem.Identity.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging;
 using System.Security.Claims;
-using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
 namespace LibSystem.Identity.Services
 {
-    public class AuthenticationService : IAuthenticationService
+    public class AuthenticationService : Application.Contracts.Identity.IAuthenticationService
     {
         private readonly UserManager<ApplicationUser> userManager;
         private readonly SignInManager<ApplicationUser> signInManager;
@@ -86,7 +85,7 @@ namespace LibSystem.Identity.Services
                     FullName = user.FullName,
                     Role = roles.FirstOrDefault() ?? string.Empty,
                     Token = tokenResult.Value,
-                    ExpiresAt = DateTime.UtcNow.AddMinutes(60), // Should match JWT expiration
+                    ExpiresAt = DateTime.UtcNow.AddMinutes(60),
                     MemberId = user.MemberId
                 };
 
@@ -106,7 +105,6 @@ namespace LibSystem.Identity.Services
             {
                 logger.LogInformation("Attempting registration for user: {Email}", request.Email);
 
-                // Check if user already exists
                 var existingUser = await userManager.FindByEmailAsync(request.Email);
                 if (existingUser != null)
                 {
@@ -114,21 +112,15 @@ namespace LibSystem.Identity.Services
                     return Result<AuthenticationResponse>.Failure(DomainErrors.Identity.UserAlreadyExists(request.Email));
                 }
 
-                // Validate role
                 if (!ApplicationRoles.AllRoles.Contains(request.Role))
                 {
                     logger.LogWarning("Registration failed: Invalid role specified: {Role}", request.Role);
                     return Result<AuthenticationResponse>.Failure(DomainErrors.Identity.InvalidRole(request.Role));
                 }
 
-                // Create domain member first
                 var domainMember = CreateDomainMemberByRole($"{request.FirstName} {request.LastName}", request.Role);
                 await memberRepository.AddAsync(domainMember);
 
-                // Note: You'll need to save changes here - adjust based on your UoW pattern
-                // await unitOfWork.SaveChangesAsync();
-
-                // Create Identity user
                 var user = new ApplicationUser
                 {
                     UserName = request.Email,
@@ -147,7 +139,6 @@ namespace LibSystem.Identity.Services
                     return Result<AuthenticationResponse>.Failure(DomainErrors.Identity.RegistrationFailed(errors));
                 }
 
-                // Assign role
                 var roleResult = await userManager.AddToRoleAsync(user, request.Role);
                 if (!roleResult.Succeeded)
                 {
@@ -156,7 +147,6 @@ namespace LibSystem.Identity.Services
                     return Result<AuthenticationResponse>.Failure(DomainErrors.Identity.RoleAssignmentFailed(request.Role, errors));
                 }
 
-                // Generate token
                 var roles = await userManager.GetRolesAsync(user);
                 var tokenResult = await jwtTokenService.GenerateTokenAsync(user, roles);
 
@@ -267,7 +257,6 @@ namespace LibSystem.Identity.Services
                     var errors = string.Join(", ", result.Errors.Select(e => e.Description));
                     logger.LogWarning("Password change failed for user {UserId}: {Errors}", userId, errors);
 
-                    // Check for specific error types
                     if (result.Errors.Any(e => e.Code == "PasswordMismatch"))
                     {
                         return Result.Failure(DomainErrors.Identity.CurrentPasswordIncorrect());
@@ -284,20 +273,6 @@ namespace LibSystem.Identity.Services
                 logger.LogError(ex, "Error changing password for user: {UserId}", userId);
                 return Result.Failure(DomainErrors.General.UnexpectedError());
             }
-        }
-
-        public async Task<Result> ForgotPasswordAsync(string email)
-        {
-            // Implementation for forgot password functionality
-            await Task.CompletedTask;
-            return Result.Failure(DomainErrors.General.UnexpectedError());
-        }
-
-        public async Task<Result> ResetPasswordAsync(string email, string token, string newPassword)
-        {
-            // Implementation for password reset functionality
-            await Task.CompletedTask;
-            return Result.Failure(DomainErrors.General.UnexpectedError());
         }
 
         private static Member CreateDomainMemberByRole(string name, string role)

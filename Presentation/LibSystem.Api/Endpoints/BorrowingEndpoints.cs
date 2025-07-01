@@ -1,7 +1,7 @@
 ﻿using LibSystem.Api.Common;
 using LibSystem.Api.Extensions;
 using LibSystem.Application.Common.Models;
-using LibSystem.Application.DTOs;
+using LibSystem.Application.DTOs.Borrowing;
 using LibSystem.Application.Usecases.Borrowing.BorrowBook;
 using LibSystem.Application.Usecases.Borrowing.GetMemberBorrowingStatus;
 using LibSystem.Application.Usecases.Borrowing.ReturnBook;

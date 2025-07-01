@@ -1,27 +1,21 @@
 ﻿using LibSystem.Application.Common.Models;
-using LibSystem.Identity.Contracts;
-using LibSystem.Identity.DTOs;
+using LibSystem.Application.DTOs.Identity;
 using LibSystem.Identity.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace LibSystem.Infrastructure.Identity.Services
+namespace LibSystem.Identity.Services
 {
-    public class UserManagementService : IUserManagementService
+    public class UserManagementService : Application.Contracts.Identity.IUserManagementService
     {
         private readonly UserManager<ApplicationUser> userManager;
-        private readonly RoleManager<IdentityRole> roleManager;
+        private readonly RoleManager<ApplicationRole> roleManager;
         private readonly ILogger<UserManagementService> logger;
 
         public UserManagementService(
             UserManager<ApplicationUser> userManager,
-            RoleManager<IdentityRole> roleManager,
+            RoleManager<ApplicationRole> roleManager,
             ILogger<UserManagementService> logger)
         {
             this.userManager = userManager;
@@ -171,7 +165,6 @@ namespace LibSystem.Infrastructure.Identity.Services
                     return Result<UserDto>.Failure(DomainErrors.Identity.UserNotFoundById(userId));
                 }
 
-                // Check if email is being changed and if it's already taken
                 if (user.Email != request.Email)
                 {
                     var existingUser = await userManager.FindByEmailAsync(request.Email);

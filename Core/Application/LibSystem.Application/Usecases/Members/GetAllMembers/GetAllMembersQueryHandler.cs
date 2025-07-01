@@ -1,7 +1,7 @@
 ﻿using AutoMapper;
 using LibSystem.Application.Common.Models;
 using LibSystem.Application.Contracts.Repositories;
-using LibSystem.Application.DTOs;
+using LibSystem.Application.DTOs.Member;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using System;

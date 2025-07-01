@@ -1,8 +1,12 @@
 ﻿using LibSystem.Api.Common;
 using LibSystem.Api.Extensions;
-using LibSystem.Identity.Contracts;
-using LibSystem.Identity.DTOs;
-
+using LibSystem.Application.DTOs.Identity;
+using LibSystem.Application.Usecases.Identity.Authentication.LoginUser;
+using LibSystem.Application.Usecases.Identity.Authentication.RegisterUser;
+using LibSystem.Application.Usecases.Identity.LoginUser;
+using LibSystem.Application.Usecases.Identity.RegisterUser;
+using LibSystem.Application.Usecases.Identity.UserManagement.GetAllUsers;
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 
@@ -39,35 +43,6 @@ namespace LibSystem.Api.Endpoints
                 .Produces<ApiResponse>(StatusCodes.Status500InternalServerError)
                 .AllowAnonymous();
 
-            // POST /api/auth/logout - User logout
-            group.MapPost("/logout", Logout)
-                .WithName("Logout")
-                .WithSummary("Logout current user")
-                .WithDescription("Logs out the currently authenticated user")
-                .Produces<ApiResponse>(StatusCodes.Status200OK)
-                .Produces<ApiResponse>(StatusCodes.Status401Unauthorized)
-                .RequireAuthorization();
-
-            // POST /api/auth/refresh - Refresh JWT token
-            group.MapPost("/refresh", RefreshToken)
-                .WithName("RefreshToken")
-                .WithSummary("Refresh JWT token")
-                .WithDescription("Generates a new JWT token using the existing token")
-                .Produces<ApiResponse<AuthenticationResponse>>(StatusCodes.Status200OK)
-                .Produces<ApiResponse>(StatusCodes.Status400BadRequest)
-                .Produces<ApiResponse>(StatusCodes.Status401Unauthorized)
-                .AllowAnonymous();
-
-            // POST /api/auth/change-password - Change password
-            group.MapPost("/change-password", ChangePassword)
-                .WithName("ChangePassword")
-                .WithSummary("Change user password")
-                .WithDescription("Changes the password for the currently authenticated user")
-                .Produces<ApiResponse>(StatusCodes.Status200OK)
-                .Produces<ApiResponse>(StatusCodes.Status400BadRequest)
-                .Produces<ApiResponse>(StatusCodes.Status401Unauthorized)
-                .RequireAuthorization();
-
             // GET /api/auth/me - Get current user info
             group.MapGet("/me", GetCurrentUser)
                 .WithName("GetCurrentUser")
@@ -79,18 +54,27 @@ namespace LibSystem.Api.Endpoints
         }
 
         private static async Task<IResult> Login(
-            [FromBody] Identity.DTOs.LoginRequest request,
-            Identity.Contracts.IAuthenticationService authService)
+            [FromBody] LoginRequest request,
+            ISender sender)
         {
-            var result = await authService.LoginAsync(request);
+            var command = new LoginUserCommand(request.Email, request.Password, request.RememberMe);
+            var result = await sender.Send(command);
             return result.ToHttpResult("User authenticated successfully");
         }
 
         private static async Task<IResult> Register(
-            [FromBody] Identity.DTOs.RegisterRequest request,
-            Identity.Contracts.IAuthenticationService authService)
+            [FromBody] RegisterRequest request,
+            ISender sender)
         {
-            var result = await authService.RegisterAsync(request);
+            var command = new RegisterUserCommand(
+                request.FirstName,
+                request.LastName,
+                request.Email,
+                request.Password,
+                request.ConfirmPassword,
+                request.Role);
+
+            var result = await sender.Send(command);
 
             if (result.IsSuccess)
             {
@@ -100,54 +84,9 @@ namespace LibSystem.Api.Endpoints
             return result.ToHttpResult();
         }
 
-        private static async Task<IResult> Logout(
-            ClaimsPrincipal user,
-            Identity.Contracts.IAuthenticationService authService)
-        {
-            var userIdClaim = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var userId))
-            {
-                return Results.Problem(
-                    detail: "Invalid user token",
-                    statusCode: StatusCodes.Status401Unauthorized,
-                    title: "Unauthorized"
-                );
-            }
-
-            var result = await authService.LogoutAsync(userId);
-            return result.ToHttpResult("Successfully logged out");
-        }
-
-        private static async Task<IResult> RefreshToken(
-            [FromBody] RefreshTokenRequest request,
-            Identity.Contracts.IAuthenticationService authService)
-        {
-            var result = await authService.RefreshTokenAsync(request);
-            return result.ToHttpResult("Token refreshed successfully");
-        }
-
-        private static async Task<IResult> ChangePassword(
-            [FromBody] ChangePasswordRequest request,
-            ClaimsPrincipal user,
-            Identity.Contracts.IAuthenticationService authService)
-        {
-            var userIdClaim = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var userId))
-            {
-                return Results.Problem(
-                    detail: "Invalid user token",
-                    statusCode: StatusCodes.Status401Unauthorized,
-                    title: "Unauthorized"
-                );
-            }
-
-            var result = await authService.ChangePasswordAsync(userId, request);
-            return result.ToHttpResult("Password changed successfully");
-        }
-
         private static async Task<IResult> GetCurrentUser(
             ClaimsPrincipal user,
-            IUserManagementService userService)
+            ISender sender)
         {
             var userIdClaim = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var userId))
@@ -159,7 +98,8 @@ namespace LibSystem.Api.Endpoints
                 );
             }
 
-            var result = await userService.GetUserByIdAsync(userId);
+            var query = new GetUserByIdQuery(userId);
+            var result = await sender.Send(query);
             return result.ToHttpResult("User information retrieved successfully");
         }
     }

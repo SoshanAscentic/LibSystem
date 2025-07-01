@@ -1,7 +1,7 @@
 ﻿using LibSystem.Api.Common;
 using LibSystem.Api.Extensions;
 using LibSystem.Application.Common.Models;
-using LibSystem.Application.DTOs;
+using LibSystem.Application.DTOs.Member;
 using LibSystem.Application.Usecases.Members.AuthenticateMember;
 using LibSystem.Application.Usecases.Members.CreateMember;
 using LibSystem.Application.Usecases.Members.GetAllMembers;

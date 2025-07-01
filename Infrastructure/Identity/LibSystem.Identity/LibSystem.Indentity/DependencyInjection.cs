@@ -3,17 +3,14 @@ using LibSystem.Identity.Context;
 using LibSystem.Identity.Contracts;
 using LibSystem.Identity.Models;
 using LibSystem.Identity.Services;
-using LibSystem.Infrastructure.Identity.Services;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using System;
-using System.Collections.Generic;
-using System.Linq;
+using Microsoft.IdentityModel.Tokens;
 using System.Text;
-using System.Threading.Tasks;
 
-namespace LibSystem.Indentity
+namespace LibSystem.Identity
 {
     public static class DependencyInjection
     {
@@ -73,7 +70,7 @@ namespace LibSystem.Indentity
                     ValidIssuer = jwtSettings.Issuer,
                     ValidAudience = jwtSettings.Audience,
                     IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Secret)),
-                    ClockSkew = TimeSpan.Zero // Remove delay of token when expire
+                    ClockSkew = TimeSpan.Zero
                 };
 
                 options.Events = new JwtBearerEvents
@@ -106,10 +103,10 @@ namespace LibSystem.Indentity
                 .AddPolicy("BorrowingManagement", policy =>
                     policy.RequireRole(Constants.ApplicationRoles.Member, Constants.ApplicationRoles.MinorStaff, Constants.ApplicationRoles.ManagementStaff, Constants.ApplicationRoles.Administrator));
 
-            // Register Identity Services
+            // Register Identity Services as implementation of Application contracts
+            services.AddScoped<LibSystem.Application.Contracts.Identity.IAuthenticationService, AuthenticationService>();
+            services.AddScoped<LibSystem.Application.Contracts.Identity.IUserManagementService, UserManagementService>();
             services.AddScoped<IJwtTokenService, JwtTokenService>();
-            services.AddScoped<IAuthenticationService, AuthenticationService>();
-            services.AddScoped<IUserManagementService, UserManagementService>();
 
             return services;
         }
@@ -119,7 +116,6 @@ namespace LibSystem.Indentity
             using var scope = serviceProvider.CreateScope();
             var identityContext = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
 
-            // Ensure database is created and migrations are applied
             await identityContext.Database.EnsureCreatedAsync();
 
             return serviceProvider;

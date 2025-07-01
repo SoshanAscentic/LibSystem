@@ -2,6 +2,8 @@
 using LibSystem.Api.Middleware;
 using LibSystem.Application;
 using LibSystem.Identity;
+using LibSystem.Identity.Context;
+using LibSystem.Infrastructure.Identity.Endpoints;
 using LibSystem.Persistence;
 using LibSystem.Persistence.Context;
 using LibSystem.Utils.Extensions;
@@ -39,7 +41,7 @@ namespace LibSystem.Api
                 // Configure endpoints
                 ConfigureEndpoints(app);
 
-                // Initialize database
+                // Initialize databases
                 await InitializeDatabaseAsync(app);
 
                 Log.Information("Library System API configured successfully");
@@ -112,15 +114,18 @@ namespace LibSystem.Api
 
                 options.AddPolicy("Production", policy =>
                 {
-                    policy.WithOrigins("")
+                    policy.WithOrigins("https://yourdomain.com") // Replace with your actual domain
                           .AllowAnyMethod()
                           .AllowAnyHeader()
                           .AllowCredentials();
                 });
             });
 
-            // Add other services
-            builder.Services.AddHealthChecks();
+            /*// Add other services
+            builder.Services.AddHealthChecks()
+                .AddDbContextCheck<LibraryDbContext>("library-database")
+                .AddDbContextCheck<IdentityDbContext>("identity-database");*/
+
             builder.Services.AddResponseCaching();
             builder.Services.AddMemoryCache();
 
@@ -198,22 +203,18 @@ namespace LibSystem.Api
 
             #endregion
 
-
             // Response caching
             app.UseResponseCaching();
 
-             app.UseRateLimiter();
+            // Rate limiting
+            app.UseRateLimiter();
 
+            // Authentication and Authorization (ENABLED)
+            app.UseAuthentication();
+            app.UseAuthorization();
 
-
-            // Authentication and Authorization (when implemented)
-            // app.UseAuthentication();
-            // app.UseAuthorization();
-
-
-
+            // Health checks
             app.UseHealthChecks("/health");
-
         }
 
         private static void ConfigureEndpoints(WebApplication app)
@@ -223,13 +224,20 @@ namespace LibSystem.Api
             app.MapMemberEndpoints();
             app.MapBorrowingEndpoints();
 
+            // Map authentication endpoints
+            app.MapAuthenticationEndpoints();
+
+            // Map user management endpoints (Admin only)
+            app.MapUserManagementEndpoints();
+
             // Root endpoint with API information
             app.MapGet("/", GetApiInfo)
                 .WithName("GetApiInfo")
                 .WithTags("General")
                 .WithSummary("Get API information and available endpoints")
                 .Produces<ApiInfoResponse>()
-                .WithOpenApi();
+                .WithOpenApi()
+                .AllowAnonymous();
 
             // API health check endpoint
             app.MapGet("/api/health", GetDetailedHealth)
@@ -237,9 +245,9 @@ namespace LibSystem.Api
                 .WithTags("General")
                 .WithSummary("Get detailed health information")
                 .Produces<HealthResponse>()
-                .WithOpenApi();
+                .WithOpenApi()
+                .AllowAnonymous();
         }
-
 
         private static async Task InitializeDatabaseAsync(WebApplication app)
         {
@@ -248,20 +256,26 @@ namespace LibSystem.Api
 
             try
             {
-                var dbContext = scope.ServiceProvider.GetRequiredService<LibraryDbContext>();
+                // Initialize Library Database
+                logger.LogInformation("Initializing Library database...");
+                var libraryDbContext = scope.ServiceProvider.GetRequiredService<LibraryDbContext>();
+                await libraryDbContext.Database.EnsureCreatedAsync();
+                logger.LogInformation("Library database initialization completed successfully");
 
-                logger.LogInformation("Applying database migrations...");
-                await dbContext.Database.EnsureCreatedAsync();
+                // Initialize Identity Database
+                logger.LogInformation("Initializing Identity database...");
+                var identityDbContext = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+                await identityDbContext.Database.EnsureCreatedAsync();
+                logger.LogInformation("Identity database initialization completed successfully");
 
-                logger.LogInformation("Database initialization completed successfully");
+                logger.LogInformation("All database initialization completed successfully");
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "An error occurred while initializing the database");
+                logger.LogError(ex, "An error occurred while initializing the databases");
                 throw; // Re-throw to prevent application startup with invalid database
             }
         }
-
 
         private static IResult GetApiInfo()
         {
@@ -269,22 +283,51 @@ namespace LibSystem.Api
             {
                 Title = "Library System API",
                 Version = "1.0.0",
-                Description = "A comprehensive library management system built with Clean Architecture, DDD, and CQRS patterns",
+                Description = "A comprehensive library management system built with Clean Architecture, DDD, CQRS patterns, and JWT authentication",
                 Documentation = "/swagger",
                 ApiSpecification = "/swagger/v1/swagger.json",
                 HealthCheck = "/health",
                 Architecture = new
                 {
                     Pattern = "Clean Architecture",
-                    Layers = new[] { "Presentation", "Application", "Domain", "Infrastructure" },
-                    Patterns = new[] { "CQRS", "DDD", "Repository Pattern", "Unit of Work", "Result Pattern" },
-                    Technologies = new[] { "ASP.NET Core", "Entity Framework Core", "MediatR", "FluentValidation", "AutoMapper", "Serilog" }
+                    Layers = new[] { "Presentation", "Application", "Domain", "Infrastructure", "Identity" },
+                    Patterns = new[] { "CQRS", "DDD", "Repository Pattern", "Unit of Work", "Result Pattern", "JWT Authentication" },
+                    Technologies = new[] { "ASP.NET Core", "Entity Framework Core", "MediatR", "FluentValidation", "AutoMapper", "Serilog", "ASP.NET Core Identity" }
                 },
                 Endpoints = new
                 {
-                    Books = new[] { "/api/books", "/api/books/{id}", "/api/books/category/{category}", "/api/books/author/{author}" },
-                    Members = new[] { "/api/members", "/api/members/{id}", "/api/members/authenticate" },
-                    Borrowing = new[] { "/api/borrowing/borrow", "/api/borrowing/return", "/api/borrowing/member/{memberId}" }
+                    Books = new[] {
+                        "/api/books",
+                        "/api/books/{id}",
+                        "/api/books/category/{category}",
+                        "/api/books/author/{author}"
+                    },
+                    Members = new[] {
+                        "/api/members",
+                        "/api/members/{id}",
+                        "/api/members/authenticate"
+                    },
+                    Borrowing = new[] {
+                        "/api/borrowing/borrow",
+                        "/api/borrowing/return",
+                        "/api/borrowing/member/{memberId}"
+                    },
+                    Authentication = new[] {
+                        "/api/auth/login",
+                        "/api/auth/register",
+                        "/api/auth/me",
+                        "/api/auth/refresh",
+                        "/api/auth/change-password"
+                    },
+                    UserManagement = new[] {
+                        "/api/users",
+                        "/api/users/{id}",
+                        "/api/users/{id}/activate",
+                        "/api/users/{id}/deactivate",
+                        "/api/users/assign-role",
+                        "/api/users/{id}/roles/{role}",
+                        "/api/users/{id}/roles"
+                    }
                 }
             };
 
@@ -301,13 +344,12 @@ namespace LibSystem.Api
                 Environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production",
                 Database = "SQL Server",
                 Framework = "Entity Framework Core",
+                Authentication = "JWT + ASP.NET Core Identity",
                 Uptime = Environment.TickCount64
             };
 
             return Results.Ok(health);
         }
-
-
     }
 
     public class ApiInfoResponse
@@ -330,7 +372,7 @@ namespace LibSystem.Api
         public string Environment { get; set; } = string.Empty;
         public string Database { get; set; } = string.Empty;
         public string Framework { get; set; } = string.Empty;
+        public string Authentication { get; set; } = string.Empty;
         public long Uptime { get; set; }
     }
-
 }

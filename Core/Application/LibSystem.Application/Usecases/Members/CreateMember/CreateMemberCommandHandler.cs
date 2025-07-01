@@ -2,7 +2,7 @@
 using LibSystem.Application.Common.Models;
 using LibSystem.Application.Contracts.Repositories;
 using LibSystem.Application.Contracts.UoW;
-using LibSystem.Application.DTOs;
+using LibSystem.Application.DTOs.Member;
 using LibSystem.Domain.Entities.Members;
 using MediatR;
 using Microsoft.Extensions.Logging;
