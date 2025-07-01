@@ -11,4 +11,9 @@
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="9.0.6" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Core\Application\LibSystem.Application\LibSystem.Application.csproj" />
+    <ProjectReference Include="..\..\..\Core\Domain\LibSystem.Domain\LibSystem.Domain.csproj" />
+  </ItemGroup>
+
 </Project>
