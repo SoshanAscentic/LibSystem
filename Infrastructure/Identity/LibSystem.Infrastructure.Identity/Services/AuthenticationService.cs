@@ -12,7 +12,7 @@ using System.Security.Claims;
 
 namespace LibSystem.Identity.Services
 {
-    public class AuthenticationService : IAuthenticationService
+    public class AuthenticationService : Infrastructure.Identity.Contracts.IAuthenticationService
     {
         private readonly UserManager<ApplicationUser> userManager;
         private readonly SignInManager<ApplicationUser> signInManager;
