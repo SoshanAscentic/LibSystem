@@ -233,11 +233,11 @@ namespace LibSystem.Api
             app.UseSerilogRequestLogging();
 
             // Authentication and Authorization (CRITICAL ORDER)
-            app.UseAuthentication(); // Must come before UseAuthorization
-            app.UseUserContext(); // Custom middleware after authentication
-            app.UseAuthorization(); // Must come after UseAuthentication
+            app.UseAuthentication(); 
+            app.UseUserContext(); 
+            app.UseAuthorization(); 
 
-            // Health checks (FIXED - Now properly configured)
+            // Health checks
             app.UseHealthChecks("/health");
         }
 

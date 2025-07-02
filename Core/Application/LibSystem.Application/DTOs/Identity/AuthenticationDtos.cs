@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace LibSystem.Application.DTOs.Identity
 {
@@ -21,7 +16,6 @@ namespace LibSystem.Application.DTOs.Identity
         [StringLength(100, ErrorMessage = "Password cannot be longer than 100 characters.")]
         [Display(Name = "Password")]
         [DataType(DataType.Password)]
-        [RegularExpression(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d]{8,}$", ErrorMessage = "Password must be at least 8 characters long, contain at least one uppercase letter, one lowercase letter, and one number.")]
         public string Password { get; set; } = string.Empty;
 
         public bool RememberMe { get; set; } = false;
@@ -33,14 +27,14 @@ namespace LibSystem.Application.DTOs.Identity
         [StringLength(100, ErrorMessage = "First name cannot be longer than 100 characters.")]
         [Display(Name = "First Name")]
         [DataType(DataType.Text)]
-        [RegularExpression(@"^[a-zA-Z]+$", ErrorMessage = "First name can only contain letters.")]
+        [RegularExpression(@"^[a-zA-Z\s]+$", ErrorMessage = "First name can only contain letters and spaces.")]
         public string FirstName { get; set; } = string.Empty;
 
         [Required]
         [StringLength(100, ErrorMessage = "Last name cannot be longer than 100 characters.")]
         [Display(Name = "Last Name")]
         [DataType(DataType.Text)]
-        [RegularExpression(@"^[a-zA-Z]+$", ErrorMessage = "Last name can only contain letters.")]
+        [RegularExpression(@"^[a-zA-Z\s]+$", ErrorMessage = "Last name can only contain letters and spaces.")]
         public string LastName { get; set; } = string.Empty;
 
         [Required]
@@ -52,16 +46,17 @@ namespace LibSystem.Application.DTOs.Identity
         public string Email { get; set; } = string.Empty;
 
         [Required]
-        [StringLength(100, ErrorMessage = "Password cannot be longer than 100 characters.")]
+        [StringLength(100, MinimumLength = 8, ErrorMessage = "Password must be between 8 and 100 characters.")]
         [Display(Name = "Password")]
-        [DataType(DataType.Text)]
-        [RegularExpression(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d]{8,}$", ErrorMessage = "Password must be at least 8 characters long, contain at least one uppercase letter, one lowercase letter, and one number.")]
+        [DataType(DataType.Password)]
+        [RegularExpression(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\s]).{8,}$",
+            ErrorMessage = "Password must be at least 8 characters long and contain at least one lowercase letter, one uppercase letter, one number, and one special character.")]
         public string Password { get; set; } = string.Empty;
 
         [Required]
         [StringLength(100, ErrorMessage = "Confirm password cannot be longer than 100 characters.")]
         [Display(Name = "Confirm Password")]
-        [DataType(DataType.Text)]
+        [DataType(DataType.Password)]
         [Compare("Password", ErrorMessage = "The password and confirmation password do not match.")]
         public string ConfirmPassword { get; set; } = string.Empty;
 
@@ -93,21 +88,23 @@ namespace LibSystem.Application.DTOs.Identity
     public class ChangePasswordRequest
     {
         [Required]
+        [Display(Name = "Current Password")]
+        [DataType(DataType.Password)]
         public string CurrentPassword { get; set; } = string.Empty;
 
         [Required]
-        [StringLength(100, MinimumLength = 6)]
+        [StringLength(100, MinimumLength = 8, ErrorMessage = "New password must be between 8 and 100 characters.")]
         [Display(Name = "New Password")]
         [DataType(DataType.Password)]
-        [RegularExpression(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d]{8,}$", ErrorMessage = "New password must be at least 8 characters long, contain at least one uppercase letter, one lowercase letter, and one number.")]
+        [RegularExpression(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\s]).{8,}$",
+            ErrorMessage = "New password must be at least 8 characters long and contain at least one lowercase letter, one uppercase letter, one number, and one special character.")]
         public string NewPassword { get; set; } = string.Empty;
 
         [Required]
-        [Compare(nameof(NewPassword))]
-        [StringLength(100, MinimumLength = 6)]
+        [Compare(nameof(NewPassword), ErrorMessage = "The new password and confirmation password do not match.")]
+        [StringLength(100, MinimumLength = 8)]
         [Display(Name = "Confirm New Password")]
         [DataType(DataType.Password)]
-        [RegularExpression(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d]{8,}$", ErrorMessage = "Confirm password must be at least 8 characters long, contain at least one uppercase letter, one lowercase letter, and one number.")]
         public string ConfirmNewPassword { get; set; } = string.Empty;
     }
 }

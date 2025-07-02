@@ -18,6 +18,9 @@ namespace LibSystem.Identity.Models
         [RegularExpression(@"^[a-zA-Z]+$", ErrorMessage = "Last name can only contain letters.")]
         public string LastName { get; set; } = string.Empty;
 
+        /*// Computed property - not mapped to database (ignored in EF configuration)
+        public string FullName => $"{FirstName} {LastName}".Trim();*/
+
         // Simple computed property - EF will handle this as a computed column
         [StringLength(200)]
         public string FullName { get; private set; } = string.Empty;
