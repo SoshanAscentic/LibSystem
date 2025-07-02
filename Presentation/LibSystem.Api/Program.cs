@@ -124,7 +124,7 @@ namespace LibSystem.Api
                 });
             });
 
-            // Add Health Checks (FIXED)
+            // Add Health Checks 
             builder.Services.AddHealthChecks()
                 .AddDbContextCheck<LibraryDbContext>("library-database")
                 .AddDbContextCheck<IdentityDbContext>("identity-database");
@@ -169,7 +169,6 @@ namespace LibSystem.Api
 
         private static void ConfigureMiddleware(WebApplication app)
         {
-            #region Development vs Production Configuration
 
             if (app.Environment.IsDevelopment())
             {
@@ -200,9 +199,7 @@ namespace LibSystem.Api
                 app.UseGlobalExceptionHandler(); // Only in production
             }
 
-            #endregion
 
-            #region Security Middleware
 
             // Global exception handling (should be early in pipeline)
             if (app.Environment.IsDevelopment())
@@ -220,8 +217,6 @@ namespace LibSystem.Api
             // CORS
             var corsPolicy = app.Environment.IsDevelopment() ? "AllowAll" : "Production";
             app.UseCors(corsPolicy);
-
-            #endregion
 
             // Response caching
             app.UseResponseCaching();

@@ -101,11 +101,41 @@ namespace LibSystem.Persistence.Repositories
             return books.OrderBy(b => b.PublicationYear.Value).ToList();
         }
 
+        public async Task<int> GetNextBookIdAsync(CancellationToken cancellationToken = default)
+        {
+            var lastBook = await dbSet
+                .OrderByDescending(b => b.Id) // Use base Id for ordering
+                .FirstOrDefaultAsync(cancellationToken);
+
+            return lastBook?.Id + 1 ?? 1;
+        }
+
         public override async Task AddAsync(Book entity, CancellationToken cancellationToken = default)
         {
             if (entity == null) throw new ArgumentNullException(nameof(entity));
 
+            // Get next base Id and set it as the BookId before adding
+            int nextId = await GetNextBookIdAsync(cancellationToken);
+
+            // Set the BookId using reflection to ensure it syncs with the database Id
+            var bookIdProperty = entity.GetType().GetProperty("BookId");
+            bookIdProperty?.SetValue(entity, BookId.Create(nextId));
+
             await base.AddAsync(entity, cancellationToken);
+        }
+
+        public override void Update(Book entity)
+        {
+            if (entity == null) throw new ArgumentNullException(nameof(entity));
+
+            // Ensure BookId is synced with database Id during updates
+            if (entity.Id > 0 && entity.BookId.Value != entity.Id)
+            {
+                var bookIdProperty = entity.GetType().GetProperty("BookId");
+                bookIdProperty?.SetValue(entity, BookId.Create(entity.Id));
+            }
+
+            base.Update(entity);
         }
     }
 }

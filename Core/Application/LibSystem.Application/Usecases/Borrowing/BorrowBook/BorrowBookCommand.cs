@@ -1,5 +1,5 @@
 ﻿// --------------------------------------------------------------------------------------------------------------------
-// <copyright file="GetBooksByAuthorQuery.cs" company="Ascentic">
+// <copyright file="BorrowBookCommand.cs" company="Ascentic">
 //   Copyright (c) Ascentic. All rights reserved.
 // </copyright>
 // <summary>
@@ -7,12 +7,13 @@
 // </summary>
 // --------------------------------------------------------------------------------------------------------------------
 
-namespace LibSystem.Application.Usecases.Books.GetBooksByAuthor
+namespace LibSystem.Application.Usecases.Borrowing.BorrowBook
 {
     using LibSystem.Application.Common.Models;
-    using LibSystem.Application.DTOs.Book;
     using MediatR;
 
-    public record GetBooksByAuthorQuery(string author)
-    : IRequest<Result<IReadOnlyList<BookDto>>>;
+    public record BorrowBookCommand(
+        int BookId,
+        int MemberID)
+        : IRequest<Result<string>>;
 }

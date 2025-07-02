@@ -1,19 +1,22 @@
-﻿using LibSystem.Application.Common.Models;
-using LibSystem.Application.DTOs.Book;
-using MediatR;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿// --------------------------------------------------------------------------------------------------------------------
+// <copyright file="CreateBookCommand.cs" company="Ascentic">
+//   Copyright (c) Ascentic. All rights reserved.
+// </copyright>
+// <summary>
+//   Provides methods for registering application services.
+// </summary>
+// --------------------------------------------------------------------------------------------------------------------
 
 namespace LibSystem.Application.Usecases.Books.CreateBook
 {
+    using LibSystem.Application.Common.Models;
+    using LibSystem.Application.DTOs.Book;
+    using MediatR;
 
     public record CreateBookCommand(
-        string Title,
-        string Author,
-        int PublicationYear,
-        int Category
-    ) : IRequest<Result<BookDto>>;
+        string title,
+        string author,
+        int publicationYear,
+        int category)
+        : IRequest<Result<BookDto>>;
 }

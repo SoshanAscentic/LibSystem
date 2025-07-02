@@ -27,7 +27,7 @@ namespace LibSystem.Persistence.Configurations
                 .HasConversion(
                     borrowingId => borrowingId.Value,
                     value => value > 0 ? BorrowingId.Create(value) : BorrowingId.CreateNew())
-                .HasColumnName("BorrowingId") // ✅ Separate column
+                .HasColumnName("BorrowingId") // Separate column
                 .ValueGeneratedNever();
 
             // Foreign Keys - reference the domain ID columns

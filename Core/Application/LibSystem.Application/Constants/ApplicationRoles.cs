@@ -1,4 +1,12 @@
-﻿namespace LibSystem.Application.Constants
+﻿// --------------------------------------------------------------------------------------------------------------------
+// <copyright file="ApplicationRoles.cs" company="Ascentic">
+//   Copyright (c) Ascentic. All rights reserved.
+// </copyright>
+// <summary>
+//   Provides methods for registering application services.
+// </summary>
+// --------------------------------------------------------------------------------------------------------------------
+namespace LibSystem.Application.Constants
 {
     public static class ApplicationRoles
     {
@@ -12,15 +20,15 @@
             Member,
             MinorStaff,
             ManagementStaff,
-            Administrator
+            Administrator,
         };
 
-        public static readonly Dictionary<string, string> RoleDescriptions = new()
+        public static readonly Dictionary<string, string> RoleDescriptions = new ()
         {
             { Member, "Regular library member with borrowing privileges." },
             { MinorStaff, "Staff member with limited administrative capabilities." },
             { ManagementStaff, "Staff member with management capabilities." },
-            { Administrator, "Full administrative access to the system." }
+            { Administrator, "Full administrative access to the system." },
         };
     }
 }

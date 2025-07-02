@@ -1,14 +1,18 @@
-﻿using LibSystem.Application.Common.Models;
-using LibSystem.Application.DTOs.Book;
-using MediatR;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿// --------------------------------------------------------------------------------------------------------------------
+// <copyright file="GetBooksByCategoryQuery.cs" company="Ascentic">
+//   Copyright (c) Ascentic. All rights reserved.
+// </copyright>
+// <summary>
+//   Provides methods for registering application services.
+// </summary>
+// --------------------------------------------------------------------------------------------------------------------
 
 namespace LibSystem.Application.Usecases.Books.GetBooksByCategory
 {
-    public record GetBooksByCategoryQuery(string Category) : IRequest<Result<IReadOnlyList<BookDto>>>;
+    using LibSystem.Application.Common.Models;
+    using LibSystem.Application.DTOs.Book;
+    using MediatR;
 
+    public record GetBooksByCategoryQuery(string category)
+    : IRequest<Result<IReadOnlyList<BookDto>>>;
 }

@@ -53,7 +53,12 @@ namespace LibSystem.Persistence.UoW
                 throw new InvalidOperationException("A transaction is already in progress.");
             }
 
-            await context.Database.BeginTransactionAsync();
+            // Use execution strategy to handle retries properly with transactions
+            var strategy = context.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
+            {
+                await context.Database.BeginTransactionAsync();
+            });
         }
 
         public async Task CommitTransactionAsync()
@@ -84,6 +89,48 @@ namespace LibSystem.Persistence.UoW
             await context.Database.RollbackTransactionAsync();
         }
 
+        // Executes the operation within a transaction using the execution strategy
+        // This is the recommended way to handle complex operations that need transactions with retry logic
+        public async Task<T> ExecuteInTransactionAsync<T>(Func<Task<T>> operation, CancellationToken cancellationToken = default)
+        {
+            var strategy = context.Database.CreateExecutionStrategy();
+            return await strategy.ExecuteAsync(async () =>
+            {
+                using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+                try
+                {
+                    var result = await operation();
+                    await transaction.CommitAsync(cancellationToken);
+                    return result;
+                }
+                catch
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    throw;
+                }
+            });
+        }
+
+        // Executes the operation within a transaction using the execution strategy (void version)
+        public async Task ExecuteInTransactionAsync(Func<Task> operation, CancellationToken cancellationToken = default)
+        {
+            var strategy = context.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
+            {
+                using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+                try
+                {
+                    await operation();
+                    await transaction.CommitAsync(cancellationToken);
+                }
+                catch
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    throw;
+                }
+            });
+        }
+
         private void SetAuditFields()
         {
             var entries = context.ChangeTracker.Entries<BaseEntity>();
@@ -102,6 +149,7 @@ namespace LibSystem.Persistence.UoW
                 }
             }
         }
+
         private List<BaseEntity> GetEntitiesNeedingIdSync()
         {
             return context.ChangeTracker.Entries<BaseEntity>()
@@ -127,42 +175,70 @@ namespace LibSystem.Persistence.UoW
                         // Sync Book entities
                         if (entity is Book book)
                         {
-                            var bookIdProperty = typeof(Book).GetProperty("BookId");
-                            if (bookIdProperty != null)
-                            {
-                                var newBookId = BookId.Create(databaseId);
-                                bookIdProperty.SetValue(book, newBookId);
-                                Console.WriteLine($"✅ Synced Book ID: {databaseId}");
-                            }
+                            SyncBookId(book, databaseId);
                         }
                         // Sync Member entities
                         else if (entity is Member member)
                         {
-                            var memberIdProperty = typeof(Member).GetProperty("MemberId");
-                            if (memberIdProperty != null)
-                            {
-                                var newMemberId = MemberId.Create(databaseId);
-                                memberIdProperty.SetValue(member, newMemberId);
-                                Console.WriteLine($"✅ Synced Member ID: {databaseId}");
-                            }
+                            SyncMemberId(member, databaseId);
                         }
                         // Sync BorrowingRecord entities
                         else if (entity is BorrowingRecord borrowing)
                         {
-                            var borrowingIdProperty = typeof(BorrowingRecord).GetProperty("BorrowingId");
-                            if (borrowingIdProperty != null)
-                            {
-                                var newBorrowingId = BorrowingId.Create(databaseId);
-                                borrowingIdProperty.SetValue(borrowing, newBorrowingId);
-                                Console.WriteLine($"✅ Synced Borrowing ID: {databaseId}");
-                            }
+                            SyncBorrowingId(borrowing, databaseId);
                         }
                     }
                     catch (Exception ex)
                     {
                         Console.WriteLine($"❌ Failed to sync ID for {entity.GetType().Name}: {ex.Message}");
+                        throw; // Re-throw to ensure data consistency
                     }
                 }
+            }
+        }
+
+        private static void SyncBookId(Book book, int databaseId)
+        {
+            var bookIdProperty = typeof(Book).GetProperty("BookId");
+            if (bookIdProperty != null && bookIdProperty.CanWrite)
+            {
+                var newBookId = BookId.Create(databaseId);
+                bookIdProperty.SetValue(book, newBookId);
+                Console.WriteLine($"✅ Synced Book ID: {databaseId}");
+            }
+            else
+            {
+                throw new InvalidOperationException("Cannot sync BookId property - property not found or not writable");
+            }
+        }
+
+        private static void SyncMemberId(Member member, int databaseId)
+        {
+            var memberIdProperty = typeof(Member).GetProperty("MemberId");
+            if (memberIdProperty != null && memberIdProperty.CanWrite)
+            {
+                var newMemberId = MemberId.Create(databaseId);
+                memberIdProperty.SetValue(member, newMemberId);
+                Console.WriteLine($"✅ Synced Member ID: {databaseId}");
+            }
+            else
+            {
+                throw new InvalidOperationException("Cannot sync MemberId property - property not found or not writable");
+            }
+        }
+
+        private static void SyncBorrowingId(BorrowingRecord borrowing, int databaseId)
+        {
+            var borrowingIdProperty = typeof(BorrowingRecord).GetProperty("BorrowingId");
+            if (borrowingIdProperty != null && borrowingIdProperty.CanWrite)
+            {
+                var newBorrowingId = BorrowingId.Create(databaseId);
+                borrowingIdProperty.SetValue(borrowing, newBorrowingId);
+                Console.WriteLine($"✅ Synced Borrowing ID: {databaseId}");
+            }
+            else
+            {
+                throw new InvalidOperationException("Cannot sync BorrowingId property - property not found or not writable");
             }
         }
 

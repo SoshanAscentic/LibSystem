@@ -1,18 +1,22 @@
-﻿using LibSystem.Application.Common.Models;
-using LibSystem.Application.Contracts.Repositories;
-using LibSystem.Application.Contracts.UoW;
-using LibSystem.Domain.Exceptions;
-using LibSystem.Domain.ValueObjects;
-using MediatR;
-using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿// --------------------------------------------------------------------------------------------------------------------
+// <copyright file="DeleteBookCommandHandler.cs" company="Ascentic">
+//   Copyright (c) Ascentic. All rights reserved.
+// </copyright>
+// <summary>
+//   Provides methods for registering application services.
+// </summary>
+// --------------------------------------------------------------------------------------------------------------------
 
 namespace LibSystem.Application.Usecases.Books.DeleteBook
 {
+    using LibSystem.Application.Common.Models;
+    using LibSystem.Application.Contracts.Repositories;
+    using LibSystem.Application.Contracts.UoW;
+    using LibSystem.Domain.Exceptions;
+    using LibSystem.Domain.ValueObjects;
+    using MediatR;
+    using Microsoft.Extensions.Logging;
+
     public class DeleteBookCommandHandler : IRequestHandler<DeleteBookCommand, Result>
     {
         private readonly IBookRepository bookRepository;
@@ -36,53 +40,53 @@ namespace LibSystem.Application.Usecases.Books.DeleteBook
         {
             try
             {
-                if (request.BookId <= 0)
+                if (request.bookId <= 0)
                 {
                     return Result.Failure(DomainErrors.General.InvalidId("Book"));
                 }
 
-                logger.LogInformation("Attempting to delete book with ID: {BookId}", request.BookId);
+                this.logger.LogInformation("Attempting to delete book with ID: {BookId}", request.bookId);
 
-                var bookId = BookId.Create(request.BookId);
-                var book = await bookRepository.GetByIdAsync(bookId, cancellationToken);
+                var bookId = BookId.Create(request.bookId);
+                var book = await this.bookRepository.GetByIdAsync(bookId, cancellationToken);
 
                 if (book == null)
                 {
-                    logger.LogWarning("Book not found for deletion: {BookId}", request.BookId);
-                    return Result.Failure(DomainErrors.Book.NotFound(request.BookId));
+                    this.logger.LogWarning("Book not found for deletion: {BookId}", request.bookId);
+                    return Result.Failure(DomainErrors.Book.NotFound(request.bookId));
                 }
 
                 // Business rule: Cannot delete books that are currently borrowed
-                var isCurrentlyBorrowed = await borrowingRepository.IsBookCurrentlyBorrowedAsync(bookId, cancellationToken);
+                var isCurrentlyBorrowed = await this.borrowingRepository.IsBookCurrentlyBorrowedAsync(bookId, cancellationToken);
                 if (isCurrentlyBorrowed)
                 {
-                    logger.LogWarning("Cannot delete currently borrowed book: {Title} (ID: {BookId})", book.Title, request.BookId);
+                    this.logger.LogWarning("Cannot delete currently borrowed book: {Title} (ID: {BookId})", book.Title, request.bookId);
                     return Result.Failure(DomainErrors.Book.CurrentlyBorrowed(book.Title));
                 }
 
                 // Delete the book (stages the change)
-                bookRepository.Remove(book);
+                this.bookRepository.Remove(book);
 
                 // Save through UnitOfWork
-                await unitOfWork.SaveChangesAsync(cancellationToken);
+                await this.unitOfWork.SaveChangesAsync(cancellationToken);
 
-                logger.LogInformation("Successfully deleted book: {Title} (ID: {BookId})", book.Title, book.BookId.Value);
+                this.logger.LogInformation("Successfully deleted book: {Title} (ID: {BookId})", book.Title, book.BookId.Value);
 
                 return Result.Success();
             }
             catch (BookNotFoundException ex)
             {
-                logger.LogWarning(ex, "Book not found for deletion: {BookId}", request.BookId);
-                return Result.Failure(DomainErrors.Book.NotFound(request.BookId));
+                this.logger.LogWarning(ex, "Book not found for deletion: {BookId}", request.bookId);
+                return Result.Failure(DomainErrors.Book.NotFound(request.bookId));
             }
             catch (ArgumentException ex) when (ex.Message.Contains("ID") || ex.Message.Contains("positive"))
             {
-                logger.LogWarning(ex, "Invalid book ID provided: {BookId}", request.BookId);
+                this.logger.LogWarning(ex, "Invalid book ID provided: {BookId}", request.bookId);
                 return Result.Failure(DomainErrors.General.InvalidId("Book"));
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Unexpected error deleting book with ID: {BookId}", request.BookId);
+                this.logger.LogError(ex, "Unexpected error deleting book with ID: {BookId}", request.bookId);
                 return Result.Failure(DomainErrors.General.UnexpectedError());
             }
         }

@@ -1,7 +1,16 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿// --------------------------------------------------------------------------------------------------------------------
+// <copyright file="AuthenticationDtos.cs" company="Ascentic">
+//   Copyright (c) Ascentic. All rights reserved.
+// </copyright>
+// <summary>
+//   Provides methods for registering application services.
+// </summary>
+// --------------------------------------------------------------------------------------------------------------------
 
 namespace LibSystem.Application.DTOs.Identity
 {
+    using System.ComponentModel.DataAnnotations;
+
     public class LoginRequest
     {
         [Required]
@@ -71,11 +80,17 @@ namespace LibSystem.Application.DTOs.Identity
     public class AuthenticationResponse
     {
         public int UserId { get; set; }
+
         public string Email { get; set; } = string.Empty;
+
         public string FullName { get; set; } = string.Empty;
+
         public string Role { get; set; } = string.Empty;
+
         public string Token { get; set; } = string.Empty;
+
         public DateTime ExpiresAt { get; set; }
+
         public int? MemberId { get; set; }
     }
 

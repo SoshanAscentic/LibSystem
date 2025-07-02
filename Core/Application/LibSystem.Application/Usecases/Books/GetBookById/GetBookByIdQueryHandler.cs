@@ -1,18 +1,22 @@
-﻿using AutoMapper;
-using LibSystem.Application.Common.Models;
-using LibSystem.Application.Contracts.Repositories;
-using LibSystem.Application.DTOs.Book;
-using LibSystem.Domain.ValueObjects;
-using MediatR;
-using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿// --------------------------------------------------------------------------------------------------------------------
+// <copyright file="GetBookByIdQueryHandler.cs" company="Ascentic">
+//   Copyright (c) Ascentic. All rights reserved.
+// </copyright>
+// <summary>
+//   Provides methods for registering application services.
+// </summary>
+// --------------------------------------------------------------------------------------------------------------------
 
 namespace LibSystem.Application.Usecases.Books.GetBookById
 {
+    using AutoMapper;
+    using LibSystem.Application.Common.Models;
+    using LibSystem.Application.Contracts.Repositories;
+    using LibSystem.Application.DTOs.Book;
+    using LibSystem.Domain.ValueObjects;
+    using MediatR;
+    using Microsoft.Extensions.Logging;
+
     public class GetBookByIdQueryHandler : IRequestHandler<GetBookByIdQuery, Result<BookDto>>
     {
         private readonly IBookRepository bookRepository;
@@ -33,31 +37,31 @@ namespace LibSystem.Application.Usecases.Books.GetBookById
         {
             try
             {
-                if (request.BookId <= 0)
+                if (request.bookId <= 0)
                 {
                     return Result<BookDto>.Failure(DomainErrors.General.InvalidId("Book"));
                 }
 
-                logger.LogInformation("Retrieving book with ID: {BookId}", request.BookId);
+                this.logger.LogInformation("Retrieving book with ID: {BookId}", request.bookId);
 
-                var bookId = BookId.Create(request.BookId);
-                var book = await bookRepository.GetByIdAsync(bookId, cancellationToken);
+                var bookId = BookId.Create(request.bookId);
+                var book = await this.bookRepository.GetByIdAsync(bookId, cancellationToken);
 
                 if (book == null)
                 {
-                    logger.LogWarning("Book not found: {BookId}", request.BookId);
-                    return Result<BookDto>.Failure(DomainErrors.Book.NotFound(request.BookId));
+                    this.logger.LogWarning("Book not found: {BookId}", request.bookId);
+                    return Result<BookDto>.Failure(DomainErrors.Book.NotFound(request.bookId));
                 }
 
-                var bookDto = mapper.Map<BookDto>(book);
+                var bookDto = this.mapper.Map<BookDto>(book);
 
-                logger.LogInformation("Successfully retrieved book: {Title}", book.Title);
+                this.logger.LogInformation("Successfully retrieved book: {Title}", book.Title);
 
                 return Result<BookDto>.Success(bookDto);
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error retrieving book with ID: {BookId}", request.BookId);
+                this.logger.LogError(ex, "Error retrieving book with ID: {BookId}", request.bookId);
                 return Result<BookDto>.Failure(DomainErrors.General.UnexpectedError());
             }
         }

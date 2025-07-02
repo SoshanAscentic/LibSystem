@@ -1,19 +1,23 @@
-﻿using LibSystem.Application.Common.Models;
-using LibSystem.Application.Contracts.Repositories;
-using LibSystem.Application.Contracts.UoW;
-using LibSystem.Domain.Entities.Borrowing;
-using LibSystem.Domain.Exceptions;
-using LibSystem.Domain.ValueObjects;
-using MediatR;
-using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿// --------------------------------------------------------------------------------------------------------------------
+// <copyright file="BorrowBookCommandHandler.cs" company="Ascentic">
+//   Copyright (c) Ascentic. All rights reserved.
+// </copyright>
+// <summary>
+//   Provides methods for registering application services.
+// </summary>
+// --------------------------------------------------------------------------------------------------------------------
 
 namespace LibSystem.Application.Usecases.Borrowing.BorrowBook
 {
+    using LibSystem.Application.Common.Models;
+    using LibSystem.Application.Contracts.Repositories;
+    using LibSystem.Application.Contracts.UoW;
+    using LibSystem.Domain.Entities.Borrowing;
+    using LibSystem.Domain.Exceptions;
+    using LibSystem.Domain.ValueObjects;
+    using MediatR;
+    using Microsoft.Extensions.Logging;
+
     public class BorrowBookCommandHandler : IRequestHandler<BorrowBookCommand, Result<string>>
     {
         private readonly IBookRepository bookRepository;
@@ -52,24 +56,22 @@ namespace LibSystem.Application.Usecases.Borrowing.BorrowBook
                 var bookId = BookId.Create(request.BookId);
                 var memberId = MemberId.Create(request.MemberID);
 
-                // Use UnitOfWork for transaction management
-                await unitOfWork.BeginTransactionAsync();
-
-                try
+                // Use UnitOfWork's execution strategy to handle the entire operation within a transaction
+                var result = await unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
                     // Get and validate entities
                     var book = await bookRepository.GetByIdAsync(bookId, cancellationToken);
                     if (book == null)
                     {
                         logger.LogWarning("Book not found: {BookId}", request.BookId);
-                        return Result<string>.Failure(DomainErrors.Book.NotFound(request.BookId));
+                        throw new BookNotFoundException(request.BookId);
                     }
 
                     var member = await memberRepository.GetByIdAsync(memberId, cancellationToken);
                     if (member == null)
                     {
                         logger.LogWarning("Member not found: {MemberID}", request.MemberID);
-                        return Result<string>.Failure(DomainErrors.Member.NotFound(request.MemberID));
+                        throw new MemberNotFoundException(request.MemberID);
                     }
 
                     // Execute business logic on domain entities
@@ -87,21 +89,14 @@ namespace LibSystem.Application.Usecases.Borrowing.BorrowBook
                     // Save all changes through UnitOfWork
                     await unitOfWork.SaveChangesAsync(cancellationToken);
 
-                    // Commit transaction through UnitOfWork
-                    await unitOfWork.CommitTransactionAsync();
-
                     var successMessage = $"Book '{book.Title}' borrowed successfully by {member.Name.Value}!";
                     logger.LogInformation("Successfully processed borrow request - Book: {BookId}, Member: {MemberID}",
                         request.BookId, request.MemberID);
 
-                    return Result<string>.Success(successMessage);
-                }
-                catch
-                {
-                    // Rollback through UnitOfWork
-                    await unitOfWork.RollbackTransactionAsync();
-                    throw;
-                }
+                    return successMessage;
+                }, cancellationToken);
+
+                return Result<string>.Success(result);
             }
             catch (InvalidBorrowingException ex) when (ex.Message.Contains("not available"))
             {

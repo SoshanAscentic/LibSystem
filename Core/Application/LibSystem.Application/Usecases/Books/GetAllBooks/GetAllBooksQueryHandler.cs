@@ -1,17 +1,21 @@
-﻿using AutoMapper;
-using LibSystem.Application.Common.Models;
-using LibSystem.Application.Contracts.Repositories;
-using LibSystem.Application.DTOs.Book;
-using MediatR;
-using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿// --------------------------------------------------------------------------------------------------------------------
+// <copyright file="GetAllBooksQueryHandler.cs" company="Ascentic">
+//   Copyright (c) Ascentic. All rights reserved.
+// </copyright>
+// <summary>
+//   Provides methods for registering application services.
+// </summary>
+// --------------------------------------------------------------------------------------------------------------------
 
 namespace LibSystem.Application.Usecases.Books.GetAllBooks
 {
+    using AutoMapper;
+    using LibSystem.Application.Common.Models;
+    using LibSystem.Application.Contracts.Repositories;
+    using LibSystem.Application.DTOs.Book;
+    using MediatR;
+    using Microsoft.Extensions.Logging;
+
     public class GetAllBooksQueryHandler : IRequestHandler<GetAllBooksQuery, Result<IReadOnlyList<BookDto>>>
     {
         private readonly IBookRepository bookRepository;
@@ -32,18 +36,18 @@ namespace LibSystem.Application.Usecases.Books.GetAllBooks
         {
             try
             {
-                logger.LogInformation("Retrieving all books");
+                this.logger.LogInformation("Retrieving all books");
 
-                var books = await bookRepository.GetAllAsync(cancellationToken);
-                var bookDtos = mapper.Map<IReadOnlyList<BookDto>>(books);
+                var books = await this.bookRepository.GetAllAsync(cancellationToken);
+                var bookDtos = this.mapper.Map<IReadOnlyList<BookDto>>(books);
 
-                logger.LogInformation("Successfully retrieved {Count} books", bookDtos.Count);
+                this.logger.LogInformation("Successfully retrieved {Count} books", bookDtos.Count);
 
                 return Result<IReadOnlyList<BookDto>>.Success(bookDtos);
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Unexpected error retrieving all books");
+                this.logger.LogError(ex, "Unexpected error retrieving all books");
                 return Result<IReadOnlyList<BookDto>>.Failure(DomainErrors.General.UnexpectedError());
             }
         }

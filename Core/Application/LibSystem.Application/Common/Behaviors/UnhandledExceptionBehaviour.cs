@@ -1,13 +1,18 @@
-﻿using MediatR;
-using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿// --------------------------------------------------------------------------------------------------------------------
+// <copyright file="UnhandledExceptionBehaviour.cs" company="Ascentic">
+//   Copyright (c) Ascentic. All rights reserved.
+// </copyright>
+// <summary>
+//   Provides methods for registering application services.
+// </summary>
+// --------------------------------------------------------------------------------------------------------------------
 
 namespace LibSystem.Application.Common.Behaviors
 {
+    using System;
+    using MediatR;
+    using Microsoft.Extensions.Logging;
+
     public class UnhandledExceptionBehaviour<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
         where TRequest : class, IRequest<TResponse>
     {
@@ -28,12 +33,14 @@ namespace LibSystem.Application.Common.Behaviors
             {
                 var requestName = typeof(TRequest).Name;
 
-                logger.LogError(ex, "Library System Request: Unhandled Exception for Request {Name} {@Request}",
-                    requestName, request);
+                this.logger.LogError(
+                    ex,
+                    "Library System Request: Unhandled Exception for Request {Name} {@Request}",
+                    requestName,
+                    request);
 
                 throw;
             }
         }
     }
-
 }
