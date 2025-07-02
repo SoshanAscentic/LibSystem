@@ -1,4 +1,5 @@
 ﻿using LibSystem.Application.Common.Models;
+using LibSystem.Application.Contracts.Identity;
 using LibSystem.Application.DTOs.Identity;
 using LibSystem.Identity.Models;
 using Microsoft.AspNetCore.Identity;
@@ -7,7 +8,7 @@ using Microsoft.Extensions.Logging;
 
 namespace LibSystem.Identity.Services
 {
-    public class UserManagementService : Application.Contracts.Identity.IUserManagementService
+    public class UserManagementService : IUserManagementService
     {
         private readonly UserManager<ApplicationUser> userManager;
         private readonly RoleManager<ApplicationRole> roleManager;
@@ -30,12 +31,11 @@ namespace LibSystem.Identity.Services
                 logger.LogInformation("Retrieving all users");
 
                 var users = await userManager.Users
-                    .Where(u => u.IsActive)
-                    .OrderBy(u => u.LastName)
-                    .ThenBy(u => u.FirstName)
+                    .OrderBy(u => u.Email)
                     .ToListAsync();
 
                 var userDtos = new List<UserDto>();
+
                 foreach (var user in users)
                 {
                     var roles = await userManager.GetRolesAsync(user);
@@ -43,9 +43,9 @@ namespace LibSystem.Identity.Services
                     {
                         Id = user.Id,
                         Email = user.Email ?? string.Empty,
+                        FullName = user.FullName,
                         FirstName = user.FirstName,
                         LastName = user.LastName,
-                        FullName = user.FullName,
                         IsActive = user.IsActive,
                         CreatedAt = user.CreatedAt,
                         Roles = roles.ToList(),
@@ -67,28 +67,24 @@ namespace LibSystem.Identity.Services
         {
             try
             {
-                if (userId <= 0)
-                {
-                    return Result<UserDto>.Failure(DomainErrors.Identity.InvalidUserId());
-                }
-
-                logger.LogInformation("Retrieving user with ID: {UserId}", userId);
+                logger.LogInformation("Retrieving user by ID: {UserId}", userId);
 
                 var user = await userManager.FindByIdAsync(userId.ToString());
                 if (user == null)
                 {
-                    logger.LogWarning("User not found with ID: {UserId}", userId);
+                    logger.LogWarning("User not found: {UserId}", userId);
                     return Result<UserDto>.Failure(DomainErrors.Identity.UserNotFoundById(userId));
                 }
 
                 var roles = await userManager.GetRolesAsync(user);
+
                 var userDto = new UserDto
                 {
                     Id = user.Id,
                     Email = user.Email ?? string.Empty,
+                    FullName = user.FullName,
                     FirstName = user.FirstName,
                     LastName = user.LastName,
-                    FullName = user.FullName,
                     IsActive = user.IsActive,
                     CreatedAt = user.CreatedAt,
                     Roles = roles.ToList(),
@@ -100,7 +96,7 @@ namespace LibSystem.Identity.Services
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error retrieving user with ID: {UserId}", userId);
+                logger.LogError(ex, "Error retrieving user by ID: {UserId}", userId);
                 return Result<UserDto>.Failure(DomainErrors.General.UnexpectedError());
             }
         }
@@ -109,28 +105,24 @@ namespace LibSystem.Identity.Services
         {
             try
             {
-                if (string.IsNullOrWhiteSpace(email))
-                {
-                    return Result<UserDto>.Failure(DomainErrors.Identity.InvalidEmailFormat());
-                }
-
-                logger.LogInformation("Retrieving user with email: {Email}", email);
+                logger.LogInformation("Retrieving user by email: {Email}", email);
 
                 var user = await userManager.FindByEmailAsync(email);
                 if (user == null)
                 {
-                    logger.LogWarning("User not found with email: {Email}", email);
+                    logger.LogWarning("User not found: {Email}", email);
                     return Result<UserDto>.Failure(DomainErrors.Identity.UserNotFound(email));
                 }
 
                 var roles = await userManager.GetRolesAsync(user);
+
                 var userDto = new UserDto
                 {
                     Id = user.Id,
                     Email = user.Email ?? string.Empty,
+                    FullName = user.FullName,
                     FirstName = user.FirstName,
                     LastName = user.LastName,
-                    FullName = user.FullName,
                     IsActive = user.IsActive,
                     CreatedAt = user.CreatedAt,
                     Roles = roles.ToList(),
@@ -142,7 +134,7 @@ namespace LibSystem.Identity.Services
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error retrieving user with email: {Email}", email);
+                logger.LogError(ex, "Error retrieving user by email: {Email}", email);
                 return Result<UserDto>.Failure(DomainErrors.General.UnexpectedError());
             }
         }
@@ -151,27 +143,19 @@ namespace LibSystem.Identity.Services
         {
             try
             {
-                if (userId <= 0)
-                {
-                    return Result<UserDto>.Failure(DomainErrors.Identity.InvalidUserId());
-                }
-
-                logger.LogInformation("Updating user with ID: {UserId}", userId);
+                logger.LogInformation("Updating user: {UserId}", userId);
 
                 var user = await userManager.FindByIdAsync(userId.ToString());
                 if (user == null)
                 {
-                    logger.LogWarning("User not found with ID: {UserId}", userId);
                     return Result<UserDto>.Failure(DomainErrors.Identity.UserNotFoundById(userId));
                 }
 
-                if (user.Email != request.Email)
+                // Check if email is already taken by another user
+                var existingUser = await userManager.FindByEmailAsync(request.Email);
+                if (existingUser != null && existingUser.Id != userId)
                 {
-                    var existingUser = await userManager.FindByEmailAsync(request.Email);
-                    if (existingUser != null && existingUser.Id != userId)
-                    {
-                        return Result<UserDto>.Failure(DomainErrors.Identity.EmailAlreadyTaken(request.Email));
-                    }
+                    return Result<UserDto>.Failure(DomainErrors.Identity.EmailAlreadyTaken(request.Email));
                 }
 
                 user.FirstName = request.FirstName;
@@ -184,19 +168,19 @@ namespace LibSystem.Identity.Services
                 var result = await userManager.UpdateAsync(user);
                 if (!result.Succeeded)
                 {
-                    var errors = string.Join(", ", result.Errors.Select(e => e.Description));
-                    logger.LogWarning("Failed to update user: {Errors}", errors);
+                    var errors = string.Join("; ", result.Errors.Select(e => e.Description));
                     return Result<UserDto>.Failure(DomainErrors.Identity.UserUpdateFailed(errors));
                 }
 
                 var roles = await userManager.GetRolesAsync(user);
+
                 var userDto = new UserDto
                 {
                     Id = user.Id,
                     Email = user.Email,
+                    FullName = user.FullName,
                     FirstName = user.FirstName,
                     LastName = user.LastName,
-                    FullName = user.FullName,
                     IsActive = user.IsActive,
                     CreatedAt = user.CreatedAt,
                     Roles = roles.ToList(),
@@ -208,7 +192,7 @@ namespace LibSystem.Identity.Services
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error updating user with ID: {UserId}", userId);
+                logger.LogError(ex, "Error updating user: {UserId}", userId);
                 return Result<UserDto>.Failure(DomainErrors.General.UnexpectedError());
             }
         }
@@ -217,17 +201,9 @@ namespace LibSystem.Identity.Services
         {
             try
             {
-                if (userId <= 0)
-                {
-                    return Result.Failure(DomainErrors.Identity.InvalidUserId());
-                }
-
-                logger.LogInformation("Deactivating user with ID: {UserId}", userId);
-
                 var user = await userManager.FindByIdAsync(userId.ToString());
                 if (user == null)
                 {
-                    logger.LogWarning("User not found with ID: {UserId}", userId);
                     return Result.Failure(DomainErrors.Identity.UserNotFoundById(userId));
                 }
 
@@ -237,16 +213,16 @@ namespace LibSystem.Identity.Services
                 var result = await userManager.UpdateAsync(user);
                 if (!result.Succeeded)
                 {
-                    var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                    var errors = string.Join("; ", result.Errors.Select(e => e.Description));
                     return Result.Failure(DomainErrors.Identity.UserUpdateFailed(errors));
                 }
 
-                logger.LogInformation("Successfully deactivated user: {Email}", user.Email);
+                logger.LogInformation("Successfully deactivated user: {UserId}", userId);
                 return Result.Success();
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error deactivating user with ID: {UserId}", userId);
+                logger.LogError(ex, "Error deactivating user: {UserId}", userId);
                 return Result.Failure(DomainErrors.General.UnexpectedError());
             }
         }
@@ -255,17 +231,9 @@ namespace LibSystem.Identity.Services
         {
             try
             {
-                if (userId <= 0)
-                {
-                    return Result.Failure(DomainErrors.Identity.InvalidUserId());
-                }
-
-                logger.LogInformation("Activating user with ID: {UserId}", userId);
-
                 var user = await userManager.FindByIdAsync(userId.ToString());
                 if (user == null)
                 {
-                    logger.LogWarning("User not found with ID: {UserId}", userId);
                     return Result.Failure(DomainErrors.Identity.UserNotFoundById(userId));
                 }
 
@@ -275,16 +243,16 @@ namespace LibSystem.Identity.Services
                 var result = await userManager.UpdateAsync(user);
                 if (!result.Succeeded)
                 {
-                    var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                    var errors = string.Join("; ", result.Errors.Select(e => e.Description));
                     return Result.Failure(DomainErrors.Identity.UserUpdateFailed(errors));
                 }
 
-                logger.LogInformation("Successfully activated user: {Email}", user.Email);
+                logger.LogInformation("Successfully activated user: {UserId}", userId);
                 return Result.Success();
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error activating user with ID: {UserId}", userId);
+                logger.LogError(ex, "Error activating user: {UserId}", userId);
                 return Result.Failure(DomainErrors.General.UnexpectedError());
             }
         }
@@ -293,13 +261,6 @@ namespace LibSystem.Identity.Services
         {
             try
             {
-                if (request.UserId <= 0)
-                {
-                    return Result.Failure(DomainErrors.Identity.InvalidUserId());
-                }
-
-                logger.LogInformation("Assigning role {Role} to user {UserId}", request.Role, request.UserId);
-
                 var user = await userManager.FindByIdAsync(request.UserId.ToString());
                 if (user == null)
                 {
@@ -321,7 +282,7 @@ namespace LibSystem.Identity.Services
                 var result = await userManager.AddToRoleAsync(user, request.Role);
                 if (!result.Succeeded)
                 {
-                    var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                    var errors = string.Join("; ", result.Errors.Select(e => e.Description));
                     return Result.Failure(DomainErrors.Identity.RoleAssignmentFailed(request.Role, errors));
                 }
 
@@ -339,13 +300,6 @@ namespace LibSystem.Identity.Services
         {
             try
             {
-                if (userId <= 0)
-                {
-                    return Result.Failure(DomainErrors.Identity.InvalidUserId());
-                }
-
-                logger.LogInformation("Removing role {Role} from user {UserId}", role, userId);
-
                 var user = await userManager.FindByIdAsync(userId.ToString());
                 if (user == null)
                 {
@@ -361,7 +315,7 @@ namespace LibSystem.Identity.Services
                 var result = await userManager.RemoveFromRoleAsync(user, role);
                 if (!result.Succeeded)
                 {
-                    var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                    var errors = string.Join("; ", result.Errors.Select(e => e.Description));
                     return Result.Failure(DomainErrors.Identity.RoleAssignmentFailed(role, errors));
                 }
 
@@ -379,13 +333,6 @@ namespace LibSystem.Identity.Services
         {
             try
             {
-                if (userId <= 0)
-                {
-                    return Result<IReadOnlyList<string>>.Failure(DomainErrors.Identity.InvalidUserId());
-                }
-
-                logger.LogInformation("Retrieving roles for user {UserId}", userId);
-
                 var user = await userManager.FindByIdAsync(userId.ToString());
                 if (user == null)
                 {
@@ -397,7 +344,7 @@ namespace LibSystem.Identity.Services
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error retrieving roles for user {UserId}", userId);
+                logger.LogError(ex, "Error getting roles for user {UserId}", userId);
                 return Result<IReadOnlyList<string>>.Failure(DomainErrors.General.UnexpectedError());
             }
         }

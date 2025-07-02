@@ -1,9 +1,9 @@
-﻿using LibSystem.Api.Endpoints;
+﻿using LibSystem.Api.Common;
+using LibSystem.Api.Endpoints;
 using LibSystem.Api.Middleware;
 using LibSystem.Application;
 using LibSystem.Identity;
 using LibSystem.Identity.Context;
-using LibSystem.Infrastructure.Identity.Endpoints;
 using LibSystem.Persistence;
 using LibSystem.Persistence.Context;
 using LibSystem.Utils.Extensions;
@@ -64,6 +64,9 @@ namespace LibSystem.Api
             // Add Utils services (including Serilog)
             builder.Services.AddUtilsServices(builder.Configuration, builder.Environment);
 
+            // Add HTTP Context Accessor (Required for CurrentUserService)
+            builder.Services.AddHttpContextAccessor();
+
             // Add Swagger with JWT support
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(options =>
@@ -121,10 +124,10 @@ namespace LibSystem.Api
                 });
             });
 
-            /*// Add other services
+            // Add Health Checks (FIXED)
             builder.Services.AddHealthChecks()
                 .AddDbContextCheck<LibraryDbContext>("library-database")
-                .AddDbContextCheck<IdentityDbContext>("identity-database");*/
+                .AddDbContextCheck<IdentityDbContext>("identity-database");
 
             builder.Services.AddResponseCaching();
             builder.Services.AddMemoryCache();
@@ -143,6 +146,12 @@ namespace LibSystem.Api
                     limiterOptions.PermitLimit = 10; // Stricter limit for auth endpoints
                     limiterOptions.Window = TimeSpan.FromMinutes(1);
                 });
+
+                options.OnRejected = async (context, _) =>
+                {
+                    context.HttpContext.Response.StatusCode = 429;
+                    await context.HttpContext.Response.WriteAsync("Rate limit exceeded. Please try again later.");
+                };
             });
 
             // Register Application Layer services
@@ -153,6 +162,9 @@ namespace LibSystem.Api
 
             // Register Identity Layer services
             builder.Services.AddIdentityServices(builder.Configuration);
+
+            // Register API-specific services
+            builder.Services.AddScoped<LibSystem.Application.Contracts.Identity.ICurrentUserService, LibSystem.Api.Authorization.CurrentUserService>();
         }
 
         private static void ConfigureMiddleware(WebApplication app)
@@ -185,6 +197,7 @@ namespace LibSystem.Api
             {
                 // Production-specific middleware
                 app.UseHsts(); // HTTP Strict Transport Security
+                app.UseGlobalExceptionHandler(); // Only in production
             }
 
             #endregion
@@ -192,7 +205,14 @@ namespace LibSystem.Api
             #region Security Middleware
 
             // Global exception handling (should be early in pipeline)
-            app.UseGlobalExceptionHandler();
+            if (app.Environment.IsDevelopment())
+            {
+                // In development, let DeveloperExceptionPage handle exceptions
+            }
+            else
+            {
+                app.UseGlobalExceptionHandler();
+            }
 
             // HTTPS redirection
             app.UseHttpsRedirection();
@@ -206,14 +226,18 @@ namespace LibSystem.Api
             // Response caching
             app.UseResponseCaching();
 
-            // Rate limiting
+            // Rate limiting (apply before authentication)
             app.UseRateLimiter();
 
-            // Authentication and Authorization (ENABLED)
-            app.UseAuthentication();
-            app.UseAuthorization();
+            // Serilog request logging
+            app.UseSerilogRequestLogging();
 
-            // Health checks
+            // Authentication and Authorization (CRITICAL ORDER)
+            app.UseAuthentication(); // Must come before UseAuthorization
+            app.UseUserContext(); // Custom middleware after authentication
+            app.UseAuthorization(); // Must come after UseAuthentication
+
+            // Health checks (FIXED - Now properly configured)
             app.UseHealthChecks("/health");
         }
 
@@ -239,7 +263,7 @@ namespace LibSystem.Api
                 .WithOpenApi()
                 .AllowAnonymous();
 
-            // API health check endpoint
+            // API health check endpoint with detailed info
             app.MapGet("/api/health", GetDetailedHealth)
                 .WithName("GetDetailedHealth")
                 .WithTags("General")
@@ -262,10 +286,9 @@ namespace LibSystem.Api
                 await libraryDbContext.Database.EnsureCreatedAsync();
                 logger.LogInformation("Library database initialization completed successfully");
 
-                // Initialize Identity Database
+                // Initialize Identity Database using the extension method
                 logger.LogInformation("Initializing Identity database...");
-                var identityDbContext = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
-                await identityDbContext.Database.EnsureCreatedAsync();
+                await app.Services.InitializeIdentityDatabaseAsync();
                 logger.LogInformation("Identity database initialization completed successfully");
 
                 logger.LogInformation("All database initialization completed successfully");
@@ -297,41 +320,52 @@ namespace LibSystem.Api
                 Endpoints = new
                 {
                     Books = new[] {
-                        "/api/books",
-                        "/api/books/{id}",
-                        "/api/books/category/{category}",
-                        "/api/books/author/{author}"
+                        "GET /api/books - Get all books",
+                        "GET /api/books/{id} - Get book by ID",
+                        "POST /api/books - Create new book (Management+)",
+                        "DELETE /api/books/{id} - Delete book (Management+)",
+                        "GET /api/books/category/{category} - Get books by category",
+                        "GET /api/books/author/{author} - Get books by author"
                     },
                     Members = new[] {
-                        "/api/members",
-                        "/api/members/{id}",
-                        "/api/members/authenticate"
+                        "GET /api/members - Get all members (Staff+)",
+                        "GET /api/members/{id} - Get member by ID",
+                        "POST /api/members - Create new member",
+                        "POST /api/members/authenticate - Authenticate member"
                     },
                     Borrowing = new[] {
-                        "/api/borrowing/borrow",
-                        "/api/borrowing/return",
-                        "/api/borrowing/member/{memberId}"
+                        "POST /api/borrowing/borrow - Borrow a book",
+                        "POST /api/borrowing/return - Return a book",
+                        "GET /api/borrowing/member/{memberId} - Get member borrowing status"
                     },
                     Authentication = new[] {
-                        "/api/auth/login",
-                        "/api/auth/register",
-                        "/api/auth/me",
-                        "/api/auth/refresh",
-                        "/api/auth/change-password"
+                        "POST /api/auth/login - User login",
+                        "POST /api/auth/register - User registration",
+                        "GET /api/auth/me - Get current user info"
                     },
                     UserManagement = new[] {
-                        "/api/users",
-                        "/api/users/{id}",
-                        "/api/users/{id}/activate",
-                        "/api/users/{id}/deactivate",
-                        "/api/users/assign-role",
-                        "/api/users/{id}/roles/{role}",
-                        "/api/users/{id}/roles"
+                        "GET /api/users - Get all users (Admin only)",
+                        "GET /api/users/{id} - Get user by ID (Admin only)"
+                    }
+                },
+                Security = new
+                {
+                    Authentication = "JWT Bearer Token",
+                    Roles = new[] { "Member", "MinorStaff", "ManagementStaff", "Administrator" },
+                    RateLimiting = new
+                    {
+                        Api = "100 requests per minute",
+                        Auth = "10 requests per minute"
                     }
                 }
             };
 
-            return Results.Ok(apiInfo);
+            return Results.Ok(new ApiResponse<ApiInfoResponse>
+            {
+                Success = true,
+                Data = apiInfo,
+                Message = "API information retrieved successfully"
+            });
         }
 
         private static IResult GetDetailedHealth()
@@ -345,10 +379,25 @@ namespace LibSystem.Api
                 Database = "SQL Server",
                 Framework = "Entity Framework Core",
                 Authentication = "JWT + ASP.NET Core Identity",
-                Uptime = Environment.TickCount64
+                Uptime = Environment.TickCount64,
+                Features = new
+                {
+                    Caching = "In-Memory",
+                    Logging = "Serilog",
+                    RateLimiting = "ASP.NET Core Rate Limiting",
+                    ExceptionHandling = "Global Exception Middleware",
+                    Validation = "FluentValidation",
+                    Mapping = "AutoMapper",
+                    HealthChecks = "ASP.NET Core Health Checks"
+                }
             };
 
-            return Results.Ok(health);
+            return Results.Ok(new ApiResponse<HealthResponse>
+            {
+                Success = true,
+                Data = health,
+                Message = "Health check completed successfully"
+            });
         }
     }
 
@@ -362,6 +411,7 @@ namespace LibSystem.Api
         public string HealthCheck { get; set; } = string.Empty;
         public object Architecture { get; set; } = new();
         public object Endpoints { get; set; } = new();
+        public object Security { get; set; } = new();
     }
 
     public class HealthResponse
@@ -374,5 +424,6 @@ namespace LibSystem.Api
         public string Framework { get; set; } = string.Empty;
         public string Authentication { get; set; } = string.Empty;
         public long Uptime { get; set; }
+        public object Features { get; set; } = new();
     }
 }

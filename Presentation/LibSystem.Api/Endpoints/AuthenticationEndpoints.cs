@@ -1,11 +1,9 @@
 ﻿using LibSystem.Api.Common;
 using LibSystem.Api.Extensions;
 using LibSystem.Application.DTOs.Identity;
-using LibSystem.Application.Usecases.Identity.Authentication.LoginUser;
-using LibSystem.Application.Usecases.Identity.Authentication.RegisterUser;
 using LibSystem.Application.Usecases.Identity.LoginUser;
 using LibSystem.Application.Usecases.Identity.RegisterUser;
-using LibSystem.Application.Usecases.Identity.UserManagement.GetAllUsers;
+using LibSystem.Application.Usecases.Identity.GetAllUsers;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;

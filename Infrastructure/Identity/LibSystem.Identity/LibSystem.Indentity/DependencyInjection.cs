@@ -1,8 +1,10 @@
-﻿using LibSystem.Identity.Configuration;
+﻿using LibSystem.Application.Contracts.Identity;
+using LibSystem.Identity.Configuration;
 using LibSystem.Identity.Context;
 using LibSystem.Identity.Contracts;
 using LibSystem.Identity.Models;
 using LibSystem.Identity.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -21,13 +23,15 @@ namespace LibSystem.Identity
             // Configure JWT settings
             var jwtSettings = new JwtSettings();
             configuration.GetSection(JwtSettings.SectionName).Bind(jwtSettings);
-            services.Configure<JwtSettings>(configuration.GetSection(JwtSettings.SectionName));
+            services.Configure<JwtSettings>(config => configuration.GetSection(JwtSettings.SectionName).Bind(config));
 
-            // Add Identity DbContext
+            // Add Identity DbContext with SEPARATE connection string
             services.AddDbContext<IdentityDbContext>(options =>
             {
-                var connectionString = configuration.GetConnectionString("DefaultConnection")
-                    ?? throw new InvalidOperationException("DefaultConnection string is not configured");
+                // FIXED: Use IdentityConnection instead of DefaultConnection
+                var connectionString = configuration.GetConnectionString("IdentityConnection")
+                    ?? configuration.GetConnectionString("DefaultConnection") // Fallback
+                    ?? throw new InvalidOperationException("IdentityConnection string is not configured");
 
                 options.UseSqlServer(connectionString, sqlOptions =>
                 {
@@ -87,26 +91,35 @@ namespace LibSystem.Identity
             });
 
             // Configure Authorization
-            services.AddAuthorizationBuilder()
-                .AddPolicy("RequireAdministratorRole", policy =>
-                    policy.RequireRole(Constants.ApplicationRoles.Administrator))
-                .AddPolicy("RequireManagementStaffRole", policy =>
-                    policy.RequireRole(Constants.ApplicationRoles.ManagementStaff, Constants.ApplicationRoles.Administrator))
-                .AddPolicy("RequireStaffRole", policy =>
-                    policy.RequireRole(Constants.ApplicationRoles.MinorStaff, Constants.ApplicationRoles.ManagementStaff, Constants.ApplicationRoles.Administrator))
-                .AddPolicy("RequireMemberRole", policy =>
-                    policy.RequireRole(Constants.ApplicationRoles.Member, Constants.ApplicationRoles.MinorStaff, Constants.ApplicationRoles.ManagementStaff, Constants.ApplicationRoles.Administrator))
-                .AddPolicy("BookManagement", policy =>
-                    policy.RequireRole(Constants.ApplicationRoles.ManagementStaff, Constants.ApplicationRoles.Administrator))
-                .AddPolicy("MemberManagement", policy =>
-                    policy.RequireRole(Constants.ApplicationRoles.Administrator))
-                .AddPolicy("BorrowingManagement", policy =>
+            services.AddAuthorization(options =>
+            {
+                options.AddPolicy("RequireAdministratorRole", policy =>
+                    policy.RequireRole(Constants.ApplicationRoles.Administrator));
+
+                options.AddPolicy("RequireManagementStaffRole", policy =>
+                    policy.RequireRole(Constants.ApplicationRoles.ManagementStaff, Constants.ApplicationRoles.Administrator));
+
+                options.AddPolicy("RequireStaffRole", policy =>
+                    policy.RequireRole(Constants.ApplicationRoles.MinorStaff, Constants.ApplicationRoles.ManagementStaff, Constants.ApplicationRoles.Administrator));
+
+                options.AddPolicy("RequireMemberRole", policy =>
                     policy.RequireRole(Constants.ApplicationRoles.Member, Constants.ApplicationRoles.MinorStaff, Constants.ApplicationRoles.ManagementStaff, Constants.ApplicationRoles.Administrator));
 
+                options.AddPolicy("BookManagement", policy =>
+                    policy.RequireRole(Constants.ApplicationRoles.ManagementStaff, Constants.ApplicationRoles.Administrator));
+
+                options.AddPolicy("MemberManagement", policy =>
+                    policy.RequireRole(Constants.ApplicationRoles.Administrator));
+
+                options.AddPolicy("BorrowingManagement", policy =>
+                    policy.RequireRole(Constants.ApplicationRoles.Member, Constants.ApplicationRoles.MinorStaff, Constants.ApplicationRoles.ManagementStaff, Constants.ApplicationRoles.Administrator));
+            });
+
             // Register Identity Services as implementation of Application contracts
-            services.AddScoped<LibSystem.Application.Contracts.Identity.IAuthenticationService, AuthenticationService>();
-            services.AddScoped<LibSystem.Application.Contracts.Identity.IUserManagementService, UserManagementService>();
+            services.AddScoped<IAuthenticationService, AuthenticationService>();
+            services.AddScoped<IUserManagementService, UserManagementService>();
             services.AddScoped<IJwtTokenService, JwtTokenService>();
+            services.AddScoped<IMemberSyncService, MemberSyncService>();
 
             return services;
         }

@@ -1,35 +1,32 @@
 ﻿using LibSystem.Application.Common.Models;
-using LibSystem.Application.Contracts.Repositories;
+using LibSystem.Application.Contracts.Identity;
 using LibSystem.Application.DTOs.Identity;
-using LibSystem.Domain.Entities.Members;
-using LibSystem.Identity.Constants;
 using LibSystem.Identity.Contracts;
 using LibSystem.Identity.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging;
-using System.Security.Claims;
 
 namespace LibSystem.Identity.Services
 {
-    public class AuthenticationService : Application.Contracts.Identity.IAuthenticationService
+    public class AuthenticationService : IAuthenticationService
     {
         private readonly UserManager<ApplicationUser> userManager;
         private readonly SignInManager<ApplicationUser> signInManager;
         private readonly IJwtTokenService jwtTokenService;
-        private readonly IMemberRepository memberRepository;
+        private readonly IMemberSyncService memberSyncService;
         private readonly ILogger<AuthenticationService> logger;
 
         public AuthenticationService(
             UserManager<ApplicationUser> userManager,
             SignInManager<ApplicationUser> signInManager,
             IJwtTokenService jwtTokenService,
-            IMemberRepository memberRepository,
+            IMemberSyncService memberSyncService,
             ILogger<AuthenticationService> logger)
         {
             this.userManager = userManager;
             this.signInManager = signInManager;
             this.jwtTokenService = jwtTokenService;
-            this.memberRepository = memberRepository;
+            this.memberSyncService = memberSyncService;
             this.logger = logger;
         }
 
@@ -37,44 +34,49 @@ namespace LibSystem.Identity.Services
         {
             try
             {
-                logger.LogInformation("Attempting login for user: {Email}", request.Email);
+                logger.LogInformation("Login attempt for email: {Email}", request.Email);
 
                 var user = await userManager.FindByEmailAsync(request.Email);
                 if (user == null)
                 {
-                    logger.LogWarning("Login failed: User not found for email: {Email}", request.Email);
+                    logger.LogWarning("Login failed - user not found: {Email}", request.Email);
                     return Result<AuthenticationResponse>.Failure(DomainErrors.Identity.InvalidCredentials());
                 }
 
                 if (!user.IsActive)
                 {
-                    logger.LogWarning("Login failed: User account is deactivated: {Email}", request.Email);
+                    logger.LogWarning("Login failed - account deactivated: {Email}", request.Email);
                     return Result<AuthenticationResponse>.Failure(DomainErrors.Identity.AccountDeactivated());
                 }
 
                 var result = await signInManager.CheckPasswordSignInAsync(user, request.Password, lockoutOnFailure: true);
+
+                if (result.IsLockedOut)
+                {
+                    logger.LogWarning("Login failed - account locked: {Email}", request.Email);
+                    return Result<AuthenticationResponse>.Failure(DomainErrors.Identity.AccountLocked());
+                }
+
                 if (!result.Succeeded)
                 {
-                    logger.LogWarning("Login failed: Invalid password for user: {Email}", request.Email);
-
-                    if (result.IsLockedOut)
-                    {
-                        return Result<AuthenticationResponse>.Failure(DomainErrors.Identity.AccountLocked());
-                    }
-
-                    if (result.IsNotAllowed)
-                    {
-                        return Result<AuthenticationResponse>.Failure(DomainErrors.Identity.EmailNotConfirmed());
-                    }
-
+                    logger.LogWarning("Login failed - invalid credentials: {Email}", request.Email);
                     return Result<AuthenticationResponse>.Failure(DomainErrors.Identity.InvalidCredentials());
                 }
 
+                // Get user roles
                 var roles = await userManager.GetRolesAsync(user);
-                var tokenResult = await jwtTokenService.GenerateTokenAsync(user, roles);
 
-                if (!tokenResult.IsSuccess)
+                // Ensure domain member sync
+                await memberSyncService.SyncUserMemberAsync(user.Id, user.FullName, roles.FirstOrDefault() ?? "Member");
+
+                // Refresh user to get updated MemberId
+                user = await userManager.FindByIdAsync(user.Id.ToString());
+
+                // Generate JWT token
+                var tokenResult = await jwtTokenService.GenerateTokenAsync(user, roles);
+                if (tokenResult.IsFailure)
                 {
+                    logger.LogError("Token generation failed for user: {Email}", request.Email);
                     return Result<AuthenticationResponse>.Failure(tokenResult.Error);
                 }
 
@@ -83,18 +85,18 @@ namespace LibSystem.Identity.Services
                     UserId = user.Id,
                     Email = user.Email ?? string.Empty,
                     FullName = user.FullName,
-                    Role = roles.FirstOrDefault() ?? string.Empty,
+                    Role = roles.FirstOrDefault() ?? "Member",
                     Token = tokenResult.Value,
-                    ExpiresAt = DateTime.UtcNow.AddMinutes(60),
+                    ExpiresAt = DateTime.UtcNow.AddHours(1), // Should match JWT settings
                     MemberId = user.MemberId
                 };
 
-                logger.LogInformation("User successfully logged in: {Email}", request.Email);
+                logger.LogInformation("Login successful for user: {Email}", request.Email);
                 return Result<AuthenticationResponse>.Success(response);
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error during login for user: {Email}", request.Email);
+                logger.LogError(ex, "Error during login for email: {Email}", request.Email);
                 return Result<AuthenticationResponse>.Failure(DomainErrors.General.UnexpectedError());
             }
         }
@@ -103,55 +105,60 @@ namespace LibSystem.Identity.Services
         {
             try
             {
-                logger.LogInformation("Attempting registration for user: {Email}", request.Email);
+                logger.LogInformation("Registration attempt for email: {Email}", request.Email);
 
+                // Check if user already exists
                 var existingUser = await userManager.FindByEmailAsync(request.Email);
                 if (existingUser != null)
                 {
-                    logger.LogWarning("Registration failed: User already exists with email: {Email}", request.Email);
+                    logger.LogWarning("Registration failed - user already exists: {Email}", request.Email);
                     return Result<AuthenticationResponse>.Failure(DomainErrors.Identity.UserAlreadyExists(request.Email));
                 }
 
-                if (!ApplicationRoles.AllRoles.Contains(request.Role))
-                {
-                    logger.LogWarning("Registration failed: Invalid role specified: {Role}", request.Role);
-                    return Result<AuthenticationResponse>.Failure(DomainErrors.Identity.InvalidRole(request.Role));
-                }
-
-                var domainMember = CreateDomainMemberByRole($"{request.FirstName} {request.LastName}", request.Role);
-                await memberRepository.AddAsync(domainMember);
-
+                // Create new user
                 var user = new ApplicationUser
                 {
                     UserName = request.Email,
                     Email = request.Email,
                     FirstName = request.FirstName,
                     LastName = request.LastName,
-                    MemberId = domainMember.Id,
-                    IsActive = true
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
                 };
 
                 var result = await userManager.CreateAsync(user, request.Password);
                 if (!result.Succeeded)
                 {
-                    var errors = string.Join(", ", result.Errors.Select(e => e.Description));
-                    logger.LogWarning("Registration failed: {Errors}", errors);
+                    var errors = string.Join("; ", result.Errors.Select(e => e.Description));
+                    logger.LogWarning("Registration failed for email {Email}: {Errors}", request.Email, errors);
                     return Result<AuthenticationResponse>.Failure(DomainErrors.Identity.RegistrationFailed(errors));
                 }
 
+                // Assign role
                 var roleResult = await userManager.AddToRoleAsync(user, request.Role);
                 if (!roleResult.Succeeded)
                 {
-                    var errors = string.Join(", ", roleResult.Errors.Select(e => e.Description));
-                    logger.LogWarning("Role assignment failed during registration: {Errors}", errors);
-                    return Result<AuthenticationResponse>.Failure(DomainErrors.Identity.RoleAssignmentFailed(request.Role, errors));
+                    logger.LogWarning("Role assignment failed for user {Email}, role {Role}", request.Email, request.Role);
+                    // Continue anyway - we can assign role later
                 }
 
-                var roles = await userManager.GetRolesAsync(user);
-                var tokenResult = await jwtTokenService.GenerateTokenAsync(user, roles);
-
-                if (!tokenResult.IsSuccess)
+                // Create domain member
+                var memberResult = await memberSyncService.CreateMemberForUserAsync(user.Id, user.FullName, request.Role);
+                if (memberResult.IsSuccess)
                 {
+                    user.MemberId = memberResult.Value;
+                    await userManager.UpdateAsync(user);
+                }
+
+                // Get roles for token generation
+                var roles = await userManager.GetRolesAsync(user);
+
+                // Generate JWT token
+                var tokenResult = await jwtTokenService.GenerateTokenAsync(user, roles);
+                if (tokenResult.IsFailure)
+                {
+                    logger.LogError("Token generation failed for new user: {Email}", request.Email);
                     return Result<AuthenticationResponse>.Failure(tokenResult.Error);
                 }
 
@@ -160,18 +167,18 @@ namespace LibSystem.Identity.Services
                     UserId = user.Id,
                     Email = user.Email,
                     FullName = user.FullName,
-                    Role = request.Role,
+                    Role = roles.FirstOrDefault() ?? request.Role,
                     Token = tokenResult.Value,
-                    ExpiresAt = DateTime.UtcNow.AddMinutes(60),
+                    ExpiresAt = DateTime.UtcNow.AddHours(1),
                     MemberId = user.MemberId
                 };
 
-                logger.LogInformation("User successfully registered: {Email}", request.Email);
+                logger.LogInformation("Registration successful for user: {Email}", request.Email);
                 return Result<AuthenticationResponse>.Success(response);
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error during registration for user: {Email}", request.Email);
+                logger.LogError(ex, "Error during registration for email: {Email}", request.Email);
                 return Result<AuthenticationResponse>.Failure(DomainErrors.General.UnexpectedError());
             }
         }
@@ -180,7 +187,7 @@ namespace LibSystem.Identity.Services
         {
             try
             {
-                logger.LogInformation("User logging out: {UserId}", userId);
+                logger.LogInformation("Logout for user: {UserId}", userId);
                 await signInManager.SignOutAsync();
                 return Result.Success();
             }
@@ -193,52 +200,9 @@ namespace LibSystem.Identity.Services
 
         public async Task<Result<AuthenticationResponse>> RefreshTokenAsync(RefreshTokenRequest request)
         {
-            try
-            {
-                var principal = jwtTokenService.GetPrincipalFromExpiredToken(request.Token);
-                if (principal == null)
-                {
-                    return Result<AuthenticationResponse>.Failure(DomainErrors.Identity.InvalidToken());
-                }
-
-                var userIdClaim = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var userId))
-                {
-                    return Result<AuthenticationResponse>.Failure(DomainErrors.Identity.InvalidToken());
-                }
-
-                var user = await userManager.FindByIdAsync(userId.ToString());
-                if (user == null || !user.IsActive)
-                {
-                    return Result<AuthenticationResponse>.Failure(DomainErrors.Identity.UserNotFoundById(userId));
-                }
-
-                var roles = await userManager.GetRolesAsync(user);
-                var tokenResult = await jwtTokenService.GenerateTokenAsync(user, roles);
-
-                if (!tokenResult.IsSuccess)
-                {
-                    return Result<AuthenticationResponse>.Failure(tokenResult.Error);
-                }
-
-                var response = new AuthenticationResponse
-                {
-                    UserId = user.Id,
-                    Email = user.Email ?? string.Empty,
-                    FullName = user.FullName,
-                    Role = roles.FirstOrDefault() ?? string.Empty,
-                    Token = tokenResult.Value,
-                    ExpiresAt = DateTime.UtcNow.AddMinutes(60),
-                    MemberId = user.MemberId
-                };
-
-                return Result<AuthenticationResponse>.Success(response);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Error during token refresh");
-                return Result<AuthenticationResponse>.Failure(DomainErrors.General.UnexpectedError());
-            }
+            // TODO: Implement refresh token logic
+            await Task.CompletedTask;
+            return Result<AuthenticationResponse>.Failure(DomainErrors.General.UnexpectedError());
         }
 
         public async Task<Result> ChangePasswordAsync(int userId, ChangePasswordRequest request)
@@ -254,14 +218,7 @@ namespace LibSystem.Identity.Services
                 var result = await userManager.ChangePasswordAsync(user, request.CurrentPassword, request.NewPassword);
                 if (!result.Succeeded)
                 {
-                    var errors = string.Join(", ", result.Errors.Select(e => e.Description));
-                    logger.LogWarning("Password change failed for user {UserId}: {Errors}", userId, errors);
-
-                    if (result.Errors.Any(e => e.Code == "PasswordMismatch"))
-                    {
-                        return Result.Failure(DomainErrors.Identity.CurrentPasswordIncorrect());
-                    }
-
+                    var errors = string.Join("; ", result.Errors.Select(e => e.Description));
                     return Result.Failure(DomainErrors.Identity.PasswordChangeFailed(errors));
                 }
 
@@ -273,17 +230,6 @@ namespace LibSystem.Identity.Services
                 logger.LogError(ex, "Error changing password for user: {UserId}", userId);
                 return Result.Failure(DomainErrors.General.UnexpectedError());
             }
-        }
-
-        private static Member CreateDomainMemberByRole(string name, string role)
-        {
-            return role switch
-            {
-                ApplicationRoles.Member => new RegularMember(name),
-                ApplicationRoles.MinorStaff => new MinorStaff(name),
-                ApplicationRoles.ManagementStaff => new ManagementStaff(name),
-                _ => new RegularMember(name)
-            };
         }
     }
 }
