@@ -17,14 +17,14 @@ namespace LibSystem.Domain.Entities.Members
         private Name name;
         private int borrowedBooksCount;
 
-        // MemberId can be accessed publicly but only set by derived classes or internally
-        public MemberId MemberId { get; internal set; }
-        
+        public MemberId MemberId => Id > 0 ? MemberId.Create(Id) : MemberId.CreateNew();
+
         public Name Name
         {
             get => name;
             private set => name = value ?? throw new ArgumentNullException(nameof(Name));
         }
+
         public int BorrowedBooksCount
         {
             get => borrowedBooksCount;
@@ -37,20 +37,19 @@ namespace LibSystem.Domain.Entities.Members
         public abstract bool CanViewMembers();
         public abstract bool CanManageBooks();
 
-        protected Member() 
+        protected Member()
         {
-            // Default value will be replaced by repository when saving
-            MemberId = MemberId.CreateNew();
+            // No need to set MemberId - it will be computed from Id
         }
 
         protected Member(string name)
         {
-            // Let the repository set the MemberId when adding to database
-            MemberId = MemberId.CreateNew();
+            // No need to set MemberId - it will be computed from Id
             Name = Name.Create(name);
             BorrowedBooksCount = 0;
 
             // Raise domain event for member creation
+            // Note: MemberId will be available after the entity is saved and has an Id
             AddDomainEvent(new MemberCreatedEvent(MemberId, Name, GetMemberType()));
         }
 
@@ -59,7 +58,7 @@ namespace LibSystem.Domain.Entities.Members
         {
             var member = new T();
             member.Id = id;
-            member.MemberId = MemberId.Create(id);
+            // No need to set MemberId - it will be computed from Id
             member.name = Name.Create(name);
             member.borrowedBooksCount = borrowedBookCounts;
             return member;
@@ -96,6 +95,7 @@ namespace LibSystem.Domain.Entities.Members
         {
             return CanBorrowBooks() && !HasReachedBorrowingLimit();
         }
+
         public void UpdateName(string newName)
         {
             Name = Name.Create(newName);

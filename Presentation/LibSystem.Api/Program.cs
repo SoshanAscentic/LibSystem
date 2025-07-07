@@ -11,6 +11,7 @@ using LibSystem.Utils.Logging;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.OpenApi.Models;
 using Serilog;
+using System.Security.Claims;
 
 namespace LibSystem.Api
 {
@@ -238,16 +239,19 @@ namespace LibSystem.Api
 
         private static void ConfigureEndpoints(WebApplication app)
         {
-            // Map all endpoint groups
+            // Map all endpoint groups with proper authorization
             app.MapBookEndpoints();
             app.MapMemberEndpoints();
             app.MapBorrowingEndpoints();
 
-            // Map authentication endpoints
+            // Map authentication endpoints (public/anonymous)
             app.MapAuthenticationEndpoints();
 
             // Map user management endpoints (Admin only)
             app.MapUserManagementEndpoints();
+
+            // Map debug endpoints (Development only)
+            app.MapDebugEndpoints();
 
             // Root endpoint with API information
             app.MapGet("/", GetApiInfo)
@@ -266,6 +270,28 @@ namespace LibSystem.Api
                 .Produces<HealthResponse>()
                 .WithOpenApi()
                 .AllowAnonymous();
+
+            // Test endpoint to verify JWT is working
+            app.MapGet("/api/test/auth", (ClaimsPrincipal user) =>
+            {
+                if (user.Identity?.IsAuthenticated != true)
+                {
+                    return Results.Json(new { message = "Not authenticated" }, statusCode: 401);
+                }
+
+                return Results.Ok(new
+                {
+                    message = "Authentication successful!",
+                    user = user.Identity.Name,
+                    roles = user.FindAll(ClaimTypes.Role).Select(c => c.Value).ToArray(),
+                    claims = user.Claims.Select(c => new { c.Type, c.Value }).ToArray()
+                });
+            })
+            .WithName("TestAuth")
+            .WithTags("Testing")
+            .WithSummary("Test JWT authentication")
+            .RequireAuthorization()
+            .WithOpenApi();
         }
 
         private static async Task InitializeDatabaseAsync(WebApplication app)

@@ -14,5 +14,4 @@ namespace LibSystem.Application.Usecases.Books.GetAllBooks
     using MediatR;
 
     public record GetAllBooksQuery() : IRequest<Result<IReadOnlyList<BookDto>>>;
-
 }

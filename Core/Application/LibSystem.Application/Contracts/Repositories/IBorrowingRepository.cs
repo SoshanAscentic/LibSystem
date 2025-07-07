@@ -29,5 +29,8 @@ namespace LibSystem.Application.Contracts.Repositories
         Task<bool> IsBookCurrentlyBorrowedAsync(BookId bookId, CancellationToken cancellationToken = default);
 
         Task<bool> HasMemberBorrowedBookAsync(BookId bookId, MemberId memberId, CancellationToken cancellationToken = default);
+
+        // Added method for ID synchronization
+        Task<int> GetNextBorrowingIdAsync(CancellationToken cancellationToken = default);
     }
 }

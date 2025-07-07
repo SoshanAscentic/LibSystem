@@ -30,32 +30,52 @@ namespace LibSystem.Persistence.Repositories
             if (bookId == null) throw new ArgumentNullException(nameof(bookId));
             if (memberId == null) throw new ArgumentNullException(nameof(memberId));
 
-            return await dbSet
-                .FirstOrDefaultAsync(br =>
-                    br.BookId.Value == bookId.Value &&
-                    br.MemberId.Value == memberId.Value &&
-                    br.ReturnedAt == null,
-                    cancellationToken);
+            // Use raw int values instead of .Value to avoid LINQ translation issues
+            var bookIdValue = bookId.Value;
+            var memberIdValue = memberId.Value;
+
+            // Get all borrowing records with matching criteria, then filter on client side if needed
+            var borrowingRecords = await dbSet
+                .Where(br => br.ReturnedAt == null)
+                .ToListAsync(cancellationToken);
+
+            // Filter by BookId and MemberId on client side using domain logic
+            return borrowingRecords.FirstOrDefault(br =>
+                br.BookId.Value == bookIdValue &&
+                br.MemberId.Value == memberIdValue);
         }
 
         public async Task<IReadOnlyList<BorrowingRecord>> GetActiveBorrowingsByMemberAsync(MemberId memberId, CancellationToken cancellationToken = default)
         {
             if (memberId == null) throw new ArgumentNullException(nameof(memberId));
 
-            return await dbSet
-                .Where(br => br.MemberId.Value == memberId.Value && br.ReturnedAt == null)
+            // Get all active borrowings first, then filter on client side
+            var activeBorrowings = await dbSet
+                .Where(br => br.ReturnedAt == null)
                 .OrderBy(br => br.BorrowedAt)
                 .ToListAsync(cancellationToken);
+
+            // Filter by MemberId using domain logic (client-side)
+            var memberIdValue = memberId.Value;
+            return activeBorrowings
+                .Where(br => br.MemberId.Value == memberIdValue)
+                .ToList();
         }
 
         public async Task<IReadOnlyList<BorrowingRecord>> GetBorrowingHistoryByMemberAsync(MemberId memberId, CancellationToken cancellationToken = default)
         {
             if (memberId == null) throw new ArgumentNullException(nameof(memberId));
 
-            return await dbSet
-                .Where(br => br.MemberId.Value == memberId.Value)
+            // Get all borrowing records first, then filter on client side
+            var allBorrowings = await dbSet
                 .OrderByDescending(br => br.BorrowedAt)
                 .ToListAsync(cancellationToken);
+
+            // Filter by MemberId using domain logic (client-side)
+            var memberIdValue = memberId.Value;
+            return allBorrowings
+                .Where(br => br.MemberId.Value == memberIdValue)
+                .ToList();
         }
 
         public async Task<IReadOnlyList<BorrowingRecord>> GetOverdueBorrowingsAsync(CancellationToken cancellationToken = default)
@@ -78,24 +98,45 @@ namespace LibSystem.Persistence.Repositories
         {
             if (bookId == null) return false;
 
-            return await dbSet
-                .AnyAsync(br => br.BookId.Value == bookId.Value && br.ReturnedAt == null, cancellationToken);
+            // Get all active borrowings and check on client side
+            var activeBorrowings = await dbSet
+                .Where(br => br.ReturnedAt == null)
+                .ToListAsync(cancellationToken);
+
+            var bookIdValue = bookId.Value;
+            return activeBorrowings.Any(br => br.BookId.Value == bookIdValue);
         }
 
         public async Task<bool> HasMemberBorrowedBookAsync(BookId bookId, MemberId memberId, CancellationToken cancellationToken = default)
         {
             if (bookId == null || memberId == null) return false;
 
-            return await dbSet
-                .AnyAsync(br => br.BookId.Value == bookId.Value && br.MemberId.Value == memberId.Value,
-                    cancellationToken);
+            // Get all borrowing records and check on client side
+            var allBorrowings = await dbSet.ToListAsync(cancellationToken);
+
+            var bookIdValue = bookId.Value;
+            var memberIdValue = memberId.Value;
+            return allBorrowings.Any(br =>
+                br.BookId.Value == bookIdValue &&
+                br.MemberId.Value == memberIdValue);
+        }
+
+        public async Task<int> GetNextBorrowingIdAsync(CancellationToken cancellationToken = default)
+        {
+            // This method is no longer used for pre-assignment
+            // We let EF Core handle the ID assignment and sync afterward
+            var lastBorrowing = await dbSet
+                .OrderByDescending(br => br.Id)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            return lastBorrowing?.Id + 1 ?? 1;
         }
 
         public override async Task<IReadOnlyList<BorrowingRecord>> GetAllAsync(CancellationToken cancellationToken = default)
         {
             return await dbSet
                 .OrderByDescending(br => br.BorrowedAt)
-                .ThenBy(br => br.Id) // Use base Id for secondary ordering
+                .ThenBy(br => br.Id)
                 .ToListAsync(cancellationToken);
         }
 
@@ -103,7 +144,32 @@ namespace LibSystem.Persistence.Repositories
         {
             if (entity == null) throw new ArgumentNullException(nameof(entity));
 
+            // FIXED: Don't pre-assign BorrowingId - let EF Core assign the database Id first
+            // The BorrowingId will be synced with the database Id after SaveChanges in UnitOfWork
+
+            // Ensure BorrowingId is set to default so UnitOfWork knows to sync it
+            if (entity.BorrowingId.Value != 0)
+            {
+                // Reset to default so sync will happen
+                var borrowingIdProperty = entity.GetType().GetProperty("BorrowingId");
+                borrowingIdProperty?.SetValue(entity, BorrowingId.CreateNew());
+            }
+
             await base.AddAsync(entity, cancellationToken);
+        }
+
+        public override void Update(BorrowingRecord entity)
+        {
+            if (entity == null) throw new ArgumentNullException(nameof(entity));
+
+            // FIXED: Only sync BorrowingId if it's different from database Id
+            if (entity.Id > 0 && entity.BorrowingId.Value != entity.Id)
+            {
+                var borrowingIdProperty = entity.GetType().GetProperty("BorrowingId");
+                borrowingIdProperty?.SetValue(entity, BorrowingId.Create(entity.Id));
+            }
+
+            base.Update(entity);
         }
     }
 }

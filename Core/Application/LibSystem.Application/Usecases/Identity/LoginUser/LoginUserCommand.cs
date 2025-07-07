@@ -12,6 +12,6 @@ namespace LibSystem.Application.Usecases.Identity.LoginUser
     public record LoginUserCommand(
         string Email,
         string Password,
-        bool RememberMe
+        bool RememberMe = false
     ) : IRequest<Result<AuthenticationResponse>>;
 }

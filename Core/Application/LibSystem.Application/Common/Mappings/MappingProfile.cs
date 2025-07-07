@@ -13,7 +13,6 @@ namespace LibSystem.Application.Common.Mappings
     using LibSystem.Application.DTOs.Book;
     using LibSystem.Application.DTOs.Borrowing;
     using LibSystem.Application.DTOs.Member;
-    using LibSystem.Domain.Entities.Books;
     using LibSystem.Domain.Entities.Borrowing;
     using LibSystem.Domain.Entities.Members;
 

@@ -52,8 +52,10 @@ namespace LibSystem.Persistence.Repositories
 
         public async Task<int> GetNextMemberIdAsync(CancellationToken cancellationToken = default)
         {
+            // This method is no longer used for pre-assignment
+            // We let EF Core handle the ID assignment and sync afterward
             var lastMember = await dbSet
-                .OrderByDescending(m => m.Id) // Use base Id for ordering
+                .OrderByDescending(m => m.Id)
                 .FirstOrDefaultAsync(cancellationToken);
 
             return lastMember?.Id + 1 ?? 1;
@@ -73,12 +75,16 @@ namespace LibSystem.Persistence.Repositories
         {
             if (entity == null) throw new ArgumentNullException(nameof(entity));
 
-            // Get next base Id and set it as the MemberId before adding
-            int nextId = await GetNextMemberIdAsync(cancellationToken);
-            
-            // Set the MemberId using the reflection (or you can alternatively add a method to set it)
-            var memberIdProperty = entity.GetType().GetProperty("MemberId");
-            memberIdProperty?.SetValue(entity, MemberId.Create(nextId));
+            // FIXED: Don't pre-assign MemberId - let EF Core assign the database Id first
+            // The MemberId will be synced with the database Id after SaveChanges in UnitOfWork
+
+            // Ensure MemberId is set to default so UnitOfWork knows to sync it
+            if (entity.MemberId.Value != 0)
+            {
+                // Reset to default so sync will happen
+                var memberIdProperty = entity.GetType().GetProperty("MemberId");
+                memberIdProperty?.SetValue(entity, MemberId.CreateNew());
+            }
 
             await base.AddAsync(entity, cancellationToken);
         }
@@ -95,6 +101,13 @@ namespace LibSystem.Persistence.Repositories
             if (entity.BorrowedBooksCount > Member.MAX_BORROWED_BOOKS)
             {
                 throw new InvalidOperationException($"Member cannot have more than {Member.MAX_BORROWED_BOOKS} borrowed books.");
+            }
+
+            // FIXED: Only sync MemberId if it's different from database Id
+            if (entity.Id > 0 && entity.MemberId.Value != entity.Id)
+            {
+                var memberIdProperty = entity.GetType().GetProperty("MemberId");
+                memberIdProperty?.SetValue(entity, MemberId.Create(entity.Id));
             }
 
             base.Update(entity);

@@ -10,7 +10,6 @@
 namespace LibSystem.Application.Usecases.Books.CreateBook
 {
     using FluentValidation;
-    using LibSystem.Domain.Entities.Books;
 
     public class CreateBookCommandValidator : AbstractValidator<CreateBookCommand>
     {

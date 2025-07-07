@@ -34,7 +34,7 @@ namespace LibSystem.Identity.Services
         {
             try
             {
-                logger.LogInformation("Login attempt for email: {Email}", request.Email);
+                logger.LogInformation("Processing login request for email: {Email}", request.Email);
 
                 var user = await userManager.FindByEmailAsync(request.Email);
                 if (user == null)
@@ -66,19 +66,19 @@ namespace LibSystem.Identity.Services
                 // Get user roles
                 var roles = await userManager.GetRolesAsync(user);
 
-                // Ensure domain member sync
+                // Ensure member sync (create domain member if needed)
                 await memberSyncService.SyncUserMemberAsync(user.Id, user.FullName, roles.FirstOrDefault() ?? "Member");
-
-                // Refresh user to get updated MemberId
-                user = await userManager.FindByIdAsync(user.Id.ToString());
 
                 // Generate JWT token
                 var tokenResult = await jwtTokenService.GenerateTokenAsync(user, roles);
-                if (tokenResult.IsFailure)
+                if (!tokenResult.IsSuccess)
                 {
-                    logger.LogError("Token generation failed for user: {Email}", request.Email);
+                    logger.LogError("Failed to generate JWT token for user: {Email}", request.Email);
                     return Result<AuthenticationResponse>.Failure(tokenResult.Error);
                 }
+
+                // Get updated member ID after sync
+                var memberIdResult = await memberSyncService.GetMemberIdForUserAsync(user.Id);
 
                 var response = new AuthenticationResponse
                 {
@@ -87,8 +87,8 @@ namespace LibSystem.Identity.Services
                     FullName = user.FullName,
                     Role = roles.FirstOrDefault() ?? "Member",
                     Token = tokenResult.Value,
-                    ExpiresAt = DateTime.UtcNow.AddHours(1), // Should match JWT settings
-                    MemberId = user.MemberId
+                    ExpiresAt = DateTime.UtcNow.AddHours(1), // Should match JWT expiration
+                    MemberId = memberIdResult.IsSuccess ? memberIdResult.Value : null
                 };
 
                 logger.LogInformation("Login successful for user: {Email}", request.Email);
@@ -105,9 +105,8 @@ namespace LibSystem.Identity.Services
         {
             try
             {
-                logger.LogInformation("Registration attempt for email: {Email}", request.Email);
+                logger.LogInformation("Processing registration request for email: {Email}", request.Email);
 
-                // Check if user already exists
                 var existingUser = await userManager.FindByEmailAsync(request.Email);
                 if (existingUser != null)
                 {
@@ -115,7 +114,6 @@ namespace LibSystem.Identity.Services
                     return Result<AuthenticationResponse>.Failure(DomainErrors.Identity.UserAlreadyExists(request.Email));
                 }
 
-                // Create new user
                 var user = new ApplicationUser
                 {
                     UserName = request.Email,
@@ -139,28 +137,25 @@ namespace LibSystem.Identity.Services
                 var roleResult = await userManager.AddToRoleAsync(user, request.Role);
                 if (!roleResult.Succeeded)
                 {
-                    logger.LogWarning("Role assignment failed for user {Email}, role {Role}", request.Email, request.Role);
-                    // Continue anyway - we can assign role later
+                    var errors = string.Join("; ", roleResult.Errors.Select(e => e.Description));
+                    logger.LogWarning("Role assignment failed for user {Email}: {Errors}", request.Email, errors);
+                    // Continue anyway - user is created but without role
                 }
 
                 // Create domain member
-                var memberResult = await memberSyncService.CreateMemberForUserAsync(user.Id, user.FullName, request.Role);
-                if (memberResult.IsSuccess)
-                {
-                    user.MemberId = memberResult.Value;
-                    await userManager.UpdateAsync(user);
-                }
-
-                // Get roles for token generation
-                var roles = await userManager.GetRolesAsync(user);
+                await memberSyncService.SyncUserMemberAsync(user.Id, user.FullName, request.Role);
 
                 // Generate JWT token
+                var roles = await userManager.GetRolesAsync(user);
                 var tokenResult = await jwtTokenService.GenerateTokenAsync(user, roles);
-                if (tokenResult.IsFailure)
+                if (!tokenResult.IsSuccess)
                 {
-                    logger.LogError("Token generation failed for new user: {Email}", request.Email);
+                    logger.LogError("Failed to generate JWT token for new user: {Email}", request.Email);
                     return Result<AuthenticationResponse>.Failure(tokenResult.Error);
                 }
+
+                // Get member ID after sync
+                var memberIdResult = await memberSyncService.GetMemberIdForUserAsync(user.Id);
 
                 var response = new AuthenticationResponse
                 {
@@ -170,7 +165,7 @@ namespace LibSystem.Identity.Services
                     Role = roles.FirstOrDefault() ?? request.Role,
                     Token = tokenResult.Value,
                     ExpiresAt = DateTime.UtcNow.AddHours(1),
-                    MemberId = user.MemberId
+                    MemberId = memberIdResult.IsSuccess ? memberIdResult.Value : null
                 };
 
                 logger.LogInformation("Registration successful for user: {Email}", request.Email);
@@ -187,9 +182,13 @@ namespace LibSystem.Identity.Services
         {
             try
             {
-                logger.LogInformation("Logout for user: {UserId}", userId);
-                await signInManager.SignOutAsync();
-                return Result.Success();
+                logger.LogInformation("Processing logout for user: {UserId}", userId);
+
+                // For JWT, logout is primarily client-side (remove token)
+                // Here we could implement token blacklisting if needed
+
+                logger.LogInformation("Logout successful for user: {UserId}", userId);
+                return await Task.FromResult(Result.Success());
             }
             catch (Exception ex)
             {
@@ -200,9 +199,54 @@ namespace LibSystem.Identity.Services
 
         public async Task<Result<AuthenticationResponse>> RefreshTokenAsync(RefreshTokenRequest request)
         {
-            // TODO: Implement refresh token logic
-            await Task.CompletedTask;
-            return Result<AuthenticationResponse>.Failure(DomainErrors.General.UnexpectedError());
+            try
+            {
+                // For simplicity, we'll validate the existing token and issue a new one
+                var principal = jwtTokenService.GetPrincipalFromExpiredToken(request.Token);
+                if (principal == null)
+                {
+                    return Result<AuthenticationResponse>.Failure(DomainErrors.Identity.InvalidToken());
+                }
+
+                var userIdClaim = principal.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var userId))
+                {
+                    return Result<AuthenticationResponse>.Failure(DomainErrors.Identity.InvalidToken());
+                }
+
+                var user = await userManager.FindByIdAsync(userId.ToString());
+                if (user == null || !user.IsActive)
+                {
+                    return Result<AuthenticationResponse>.Failure(DomainErrors.Identity.UserNotFoundById(userId));
+                }
+
+                var roles = await userManager.GetRolesAsync(user);
+                var tokenResult = await jwtTokenService.GenerateTokenAsync(user, roles);
+                if (!tokenResult.IsSuccess)
+                {
+                    return Result<AuthenticationResponse>.Failure(tokenResult.Error);
+                }
+
+                var memberIdResult = await memberSyncService.GetMemberIdForUserAsync(user.Id);
+
+                var response = new AuthenticationResponse
+                {
+                    UserId = user.Id,
+                    Email = user.Email ?? string.Empty,
+                    FullName = user.FullName,
+                    Role = roles.FirstOrDefault() ?? "Member",
+                    Token = tokenResult.Value,
+                    ExpiresAt = DateTime.UtcNow.AddHours(1),
+                    MemberId = memberIdResult.IsSuccess ? memberIdResult.Value : null
+                };
+
+                return Result<AuthenticationResponse>.Success(response);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error during token refresh");
+                return Result<AuthenticationResponse>.Failure(DomainErrors.General.UnexpectedError());
+            }
         }
 
         public async Task<Result> ChangePasswordAsync(int userId, ChangePasswordRequest request)

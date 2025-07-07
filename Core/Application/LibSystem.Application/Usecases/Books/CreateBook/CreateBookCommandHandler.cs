@@ -14,7 +14,6 @@ namespace LibSystem.Application.Usecases.Books.CreateBook
     using LibSystem.Application.Contracts.Repositories;
     using LibSystem.Application.Contracts.UoW;
     using LibSystem.Application.DTOs.Book;
-    using LibSystem.Domain.Entities.Books;
     using LibSystem.Domain.Exceptions;
     using MediatR;
     using Microsoft.Extensions.Logging;

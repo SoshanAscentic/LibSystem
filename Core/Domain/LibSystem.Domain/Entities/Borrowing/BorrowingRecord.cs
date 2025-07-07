@@ -10,18 +10,12 @@ namespace LibSystem.Domain.Entities.Borrowing
 {
     public sealed class BorrowingRecord : BaseEntity, IAggregateRoot
     {
-
-        private BorrowingId borrowingId;
         private BookId bookId;
         private MemberId memberId;
         private DateTime borrowedAt;
         private DateTime? returnedAt;
 
-        public BorrowingId BorrowingId
-        {
-            get => borrowingId;
-            private set => borrowingId = value ?? throw new ArgumentNullException(nameof(BorrowingId));
-        }
+        public BorrowingId BorrowingId => Id > 0 ? BorrowingId.Create(Id) : BorrowingId.CreateNew();
 
         public BookId BookId
         {
@@ -34,11 +28,13 @@ namespace LibSystem.Domain.Entities.Borrowing
             get => memberId;
             private set => memberId = value ?? throw new ArgumentNullException(nameof(MemberId));
         }
+
         public DateTime BorrowedAt
         {
             get => borrowedAt;
             private set => borrowedAt = value;
         }
+
         public DateTime? ReturnedAt
         {
             get => returnedAt;
@@ -61,13 +57,12 @@ namespace LibSystem.Domain.Entities.Borrowing
         // Private constructor for EF Core
         private BorrowingRecord() { }
 
-        
         //Factory method to create a new borrowing record
         public static BorrowingRecord Create(BookId bookId, MemberId memberId)
         {
             return new BorrowingRecord
             {
-                BorrowingId = BorrowingId.CreateNew(),
+                // No need to set BorrowingId - it will be computed from Id
                 BookId = bookId,
                 MemberId = memberId,
                 BorrowedAt = DateTime.UtcNow
@@ -81,7 +76,7 @@ namespace LibSystem.Domain.Entities.Borrowing
             return new BorrowingRecord
             {
                 Id = id,
-                BorrowingId = BorrowingId.Create(id),
+                // No need to set BorrowingId - it will be computed from Id
                 BookId = BookId.Create(bookId),
                 MemberId = MemberId.Create(memberId),
                 BorrowedAt = borrowedAt,
@@ -103,6 +98,5 @@ namespace LibSystem.Domain.Entities.Borrowing
             var status = IsActive ? $"Active ({DaysBorrowed} days)" : $"Returned after {DaysBorrowed} days";
             return $"Borrowing {BorrowingId.Value}: Book {BookId.Value} by Member {MemberId.Value} - {status}";
         }
-
     }
 }

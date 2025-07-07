@@ -74,15 +74,33 @@ namespace LibSystem.Application.Usecases.Borrowing.BorrowBook
                         throw new MemberNotFoundException(request.MemberID);
                     }
 
+                    // Check if book is already borrowed by this member (prevent duplicates)
+                    var existingBorrowing = await borrowingRepository.GetActiveBorrowingAsync(bookId, memberId, cancellationToken);
+                    if (existingBorrowing != null)
+                    {
+                        logger.LogWarning("Book {BookId} is already borrowed by member {MemberID}", request.BookId, request.MemberID);
+                        throw new InvalidBorrowingException($"Book {request.BookId} is already borrowed by member {request.MemberID}.");
+                    }
+
+                    // Check if book is available
+                    var isCurrentlyBorrowed = await borrowingRepository.IsBookCurrentlyBorrowedAsync(bookId, cancellationToken);
+                    if (isCurrentlyBorrowed)
+                    {
+                        logger.LogWarning("Book {BookId} is not available for borrowing", request.BookId);
+                        throw new InvalidBorrowingException($"Book {request.BookId} is not available for borrowing.");
+                    }
+
                     // Execute business logic on domain entities
                     member.BorrowBook(bookId); // This validates borrowing rules
                     book.Borrow(memberId);     // This validates book availability
 
-                    // Create borrowing record
+                    // Create borrowing record - Repository will handle ID assignment
                     var borrowingRecord = BorrowingRecord.Create(bookId, memberId);
+
+                    // Add entities in the right order to avoid FK constraint issues
                     await borrowingRepository.AddAsync(borrowingRecord, cancellationToken);
 
-                    // Update entities (stages changes)
+                    // Update existing entities
                     memberRepository.Update(member);
                     bookRepository.Update(book);
 
@@ -98,20 +116,20 @@ namespace LibSystem.Application.Usecases.Borrowing.BorrowBook
 
                 return Result<string>.Success(result);
             }
-            catch (InvalidBorrowingException ex) when (ex.Message.Contains("not available"))
+            catch (InvalidBorrowingException ex) when (ex.Message.Contains("not available") || ex.Message.Contains("already borrowed"))
             {
-                logger.LogWarning(ex, "Book not available for borrowing");
+                logger.LogWarning(ex, "Book not available for borrowing or already borrowed");
                 return Result<string>.Failure(DomainErrors.Book.NotAvailable(request.BookId));
             }
             catch (InvalidBorrowingException ex) when (ex.Message.Contains("limit"))
             {
                 logger.LogWarning(ex, "Member borrowing limit exceeded");
-                return Result<string>.Failure(DomainErrors.Member.BorrowingLimitExceeded(request.MemberID, 0, 5)); // You'd get actual values from member
+                return Result<string>.Failure(DomainErrors.Member.BorrowingLimitExceeded(request.MemberID, 0, 5));
             }
             catch (InvalidBorrowingException ex) when (ex.Message.Contains("permission"))
             {
                 logger.LogWarning(ex, "Member cannot borrow books");
-                return Result<string>.Failure(DomainErrors.Member.CannotBorrow(request.MemberID, "Unknown")); // You'd get actual member type
+                return Result<string>.Failure(DomainErrors.Member.CannotBorrow(request.MemberID, "Unknown"));
             }
             catch (BookNotFoundException ex)
             {

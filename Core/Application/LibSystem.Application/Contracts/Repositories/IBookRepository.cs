@@ -12,7 +12,6 @@ namespace LibSystem.Application.Contracts.Repositories
     using System.Collections.Generic;
     using System.Threading.Tasks;
     using LibSystem.Domain.Common;
-    using LibSystem.Domain.Entities.Books;
     using LibSystem.Domain.ValueObjects;
 
     public interface IBookRepository : IGenericRepository<Book>

@@ -33,6 +33,10 @@ namespace LibSystem.Persistence
                 {
                     // Configure SQL Server specific options
                     sqlOptions.MigrationsAssembly(typeof(LibraryDbContext).Assembly.FullName);
+
+                    // Enable retry logic for transient failures
+                    // Note: This works properly with our UnitOfWork's ExecuteInTransactionAsync methods
+                    // which use the execution strategy pattern to handle retries with transactions
                     sqlOptions.EnableRetryOnFailure(
                         maxRetryCount: 3,
                         maxRetryDelay: TimeSpan.FromSeconds(30),
@@ -56,7 +60,8 @@ namespace LibSystem.Persistence
             services.AddScoped<IMemberRepository, MemberRepository>();
             services.AddScoped<IBorrowingRepository, BorrowingRepository>();
 
-            // Register Unit of Work
+            // Register Unit of Work with execution strategy support
+            // The UnitOfWork now properly handles retry logic through ExecuteInTransactionAsync methods
             services.AddScoped<IUnitOfWork, UnitOfWork>();
 
             return services;
