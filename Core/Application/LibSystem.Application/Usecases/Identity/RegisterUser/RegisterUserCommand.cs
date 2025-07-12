@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 namespace LibSystem.Application.Usecases.Identity.RegisterUser
+
 {
     public record RegisterUserCommand(
         string FirstName,

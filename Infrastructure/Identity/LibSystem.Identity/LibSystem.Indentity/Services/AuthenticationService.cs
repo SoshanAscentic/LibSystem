@@ -1,10 +1,12 @@
 ﻿using LibSystem.Application.Common.Models;
 using LibSystem.Application.Contracts.Identity;
 using LibSystem.Application.DTOs.Identity;
+using LibSystem.Identity.Configuration;
 using LibSystem.Identity.Contracts;
 using LibSystem.Identity.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging;
+using System.Security.Claims;
 
 namespace LibSystem.Identity.Services
 {
@@ -15,6 +17,8 @@ namespace LibSystem.Identity.Services
         private readonly IJwtTokenService jwtTokenService;
         private readonly IMemberSyncService memberSyncService;
         private readonly ILogger<AuthenticationService> logger;
+        private readonly JwtSettings jwtSettings;
+
 
         public AuthenticationService(
             UserManager<ApplicationUser> userManager,
@@ -201,14 +205,13 @@ namespace LibSystem.Identity.Services
         {
             try
             {
-                // For simplicity, we'll validate the existing token and issue a new one
                 var principal = jwtTokenService.GetPrincipalFromExpiredToken(request.Token);
                 if (principal == null)
                 {
                     return Result<AuthenticationResponse>.Failure(DomainErrors.Identity.InvalidToken());
                 }
 
-                var userIdClaim = principal.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                var userIdClaim = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var userId))
                 {
                     return Result<AuthenticationResponse>.Failure(DomainErrors.Identity.InvalidToken());
@@ -222,30 +225,44 @@ namespace LibSystem.Identity.Services
 
                 var roles = await userManager.GetRolesAsync(user);
                 var tokenResult = await jwtTokenService.GenerateTokenAsync(user, roles);
-                if (!tokenResult.IsSuccess)
+
+                if (tokenResult.IsFailure)
                 {
                     return Result<AuthenticationResponse>.Failure(tokenResult.Error);
                 }
-
-                var memberIdResult = await memberSyncService.GetMemberIdForUserAsync(user.Id);
 
                 var response = new AuthenticationResponse
                 {
                     UserId = user.Id,
                     Email = user.Email ?? string.Empty,
                     FullName = user.FullName,
-                    Role = roles.FirstOrDefault() ?? "Member",
+                    Role = roles.FirstOrDefault() ?? string.Empty,
                     Token = tokenResult.Value,
-                    ExpiresAt = DateTime.UtcNow.AddHours(1),
-                    MemberId = memberIdResult.IsSuccess ? memberIdResult.Value : null
+                    ExpiresAt = DateTime.UtcNow.AddMinutes(jwtSettings.ExpirationInMinutes),
+                    MemberId = user.MemberId
                 };
 
+                logger.LogInformation("Token refreshed successfully for user: {Email}", user.Email);
                 return Result<AuthenticationResponse>.Success(response);
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error during token refresh");
-                return Result<AuthenticationResponse>.Failure(DomainErrors.General.UnexpectedError());
+                logger.LogError(ex, "Error refreshing token");
+                return Result<AuthenticationResponse>.Failure(DomainErrors.Identity.TokenValidationFailed());
+            }
+        }
+
+        public async Task<Result> ValidateTokenAsync(string token)
+        {
+            try
+            {
+                var validationResult = await jwtTokenService.ValidateTokenAsync(token);
+                return validationResult.IsSuccess ? Result.Success() : Result.Failure(validationResult.Error);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error validating token");
+                return Result.Failure(DomainErrors.Identity.TokenValidationFailed());
             }
         }
 

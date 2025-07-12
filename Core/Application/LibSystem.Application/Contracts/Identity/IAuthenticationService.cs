@@ -22,6 +22,8 @@ namespace LibSystem.Application.Contracts.Identity
 
         Task<Result<AuthenticationResponse>> RefreshTokenAsync(RefreshTokenRequest request);
 
+        Task<Result> ValidateTokenAsync(string token);
+
         Task<Result> ChangePasswordAsync(int userId, ChangePasswordRequest request);
     }
 }

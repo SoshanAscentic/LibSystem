@@ -1,6 +1,7 @@
 ﻿using LibSystem.Api.Common;
 using LibSystem.Api.Endpoints;
 using LibSystem.Api.Middleware;
+using LibSystem.Api.Security; 
 using LibSystem.Application;
 using LibSystem.Identity;
 using LibSystem.Identity.Context;
@@ -68,6 +69,13 @@ namespace LibSystem.Api
             // Add HTTP Context Accessor (Required for CurrentUserService)
             builder.Services.AddHttpContextAccessor();
 
+            // ADD SECURITY ENHANCEMENTS HERE
+            builder.Services.AddSecurityEnhancements(builder.Configuration);
+
+            // Register security services
+            builder.Services.AddScoped<ICsrfTokenService, CsrfTokenService>();
+            builder.Services.AddScoped<IAuditService, AuditService>();
+
             // Add Swagger with JWT support
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(options =>
@@ -106,7 +114,7 @@ namespace LibSystem.Api
                 });
             });
 
-            // Add CORS
+            // Enhanced CORS with security settings
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("AllowAll", policy =>
@@ -121,7 +129,17 @@ namespace LibSystem.Api
                     policy.WithOrigins("https://yourdomain.com") // Replace with your actual domain
                           .AllowAnyMethod()
                           .AllowAnyHeader()
-                          .AllowCredentials();
+                          .AllowCredentials() // IMPORTANT for httpOnly cookies
+                          .WithExposedHeaders("X-CSRF-TOKEN"); // Expose CSRF token header
+                });
+
+                options.AddPolicy("Development", policy =>
+                {
+                    policy.WithOrigins("http://localhost:3000", "https://localhost:3000") // Your frontend URLs
+                          .AllowAnyMethod()
+                          .AllowAnyHeader()
+                          .AllowCredentials() // IMPORTANT for httpOnly cookies
+                          .WithExposedHeaders("X-CSRF-TOKEN");
                 });
             });
 
@@ -133,27 +151,8 @@ namespace LibSystem.Api
             builder.Services.AddResponseCaching();
             builder.Services.AddMemoryCache();
 
-            // Add rate limiting
-            builder.Services.AddRateLimiter(options =>
-            {
-                options.AddFixedWindowLimiter("api", limiterOptions =>
-                {
-                    limiterOptions.PermitLimit = 100;
-                    limiterOptions.Window = TimeSpan.FromMinutes(1);
-                });
-
-                options.AddFixedWindowLimiter("auth", limiterOptions =>
-                {
-                    limiterOptions.PermitLimit = 10; // Stricter limit for auth endpoints
-                    limiterOptions.Window = TimeSpan.FromMinutes(1);
-                });
-
-                options.OnRejected = async (context, _) =>
-                {
-                    context.HttpContext.Response.StatusCode = 429;
-                    await context.HttpContext.Response.WriteAsync("Rate limit exceeded. Please try again later.");
-                };
-            });
+            // Enhanced Rate Limiting is now handled in SecurityEnhancements
+            // Remove the old rate limiting code
 
             // Register Application Layer services
             builder.Services.AddApplicationServices();
@@ -170,7 +169,6 @@ namespace LibSystem.Api
 
         private static void ConfigureMiddleware(WebApplication app)
         {
-
             if (app.Environment.IsDevelopment())
             {
                 // Development-specific middleware
@@ -200,7 +198,8 @@ namespace LibSystem.Api
                 app.UseGlobalExceptionHandler(); // Only in production
             }
 
-
+            // Use the middleware extension method
+            app.UseSecurityEnhancements();
 
             // Global exception handling (should be early in pipeline)
             if (app.Environment.IsDevelopment())
@@ -215,23 +214,23 @@ namespace LibSystem.Api
             // HTTPS redirection
             app.UseHttpsRedirection();
 
-            // CORS
-            var corsPolicy = app.Environment.IsDevelopment() ? "AllowAll" : "Production";
+            // CORS - Use appropriate policy based on environment
+            var corsPolicy = app.Environment.IsDevelopment() ? "Development" : "Production";
             app.UseCors(corsPolicy);
 
             // Response caching
             app.UseResponseCaching();
 
-            // Rate limiting (apply before authentication)
-            app.UseRateLimiter();
+            // Rate limiting is now handled in SecurityEnhancements
+            // app.UseRateLimiter(); // This is called in UseSecurityEnhancements()
 
             // Serilog request logging
             app.UseSerilogRequestLogging();
 
             // Authentication and Authorization (CRITICAL ORDER)
-            app.UseAuthentication(); 
-            app.UseUserContext(); 
-            app.UseAuthorization(); 
+            app.UseAuthentication();
+            app.UseUserContext();
+            app.UseAuthorization();
 
             // Health checks
             app.UseHealthChecks("/health");
@@ -247,11 +246,17 @@ namespace LibSystem.Api
             // Map authentication endpoints (public/anonymous)
             app.MapAuthenticationEndpoints();
 
+            // MAP NEW SECURE AUTHENTICATION ENDPOINTS
+            app.MapSecureAuthenticationEndpoints();
+
+            // MAP PERMISSION VERIFICATION ENDPOINTS
+            app.MapPermissionVerificationEndpoints();
+
             // Map user management endpoints (Admin only)
             app.MapUserManagementEndpoints();
 
-            // Map debug endpoints (Development only)
-            app.MapDebugEndpoints();
+            // REMOVE THIS LINE - MapDebugEndpoints doesn't exist
+            // app.MapDebugEndpoints(); 
 
             // Root endpoint with API information
             app.MapGet("/", GetApiInfo)
@@ -292,6 +297,17 @@ namespace LibSystem.Api
             .WithSummary("Test JWT authentication")
             .RequireAuthorization()
             .WithOpenApi();
+
+            // CSRF Token endpoint
+            app.MapGet("/api/csrf-token", (ICsrfTokenService csrfService) =>
+            {
+                var token = csrfService.GenerateToken();
+                return Results.Ok(new { csrfToken = token });
+            })
+            .WithName("GetCsrfToken")
+            .WithTags("Security")
+            .WithSummary("Get CSRF token")
+            .AllowAnonymous();
         }
 
         private static async Task InitializeDatabaseAsync(WebApplication app)
@@ -362,21 +378,38 @@ namespace LibSystem.Api
                     Authentication = new[] {
                         "POST /api/auth/login - User login",
                         "POST /api/auth/register - User registration",
-                        "GET /api/auth/me - Get current user info"
+                        "GET /api/auth/me - Get current user info",
+                        "POST /api/auth/login (Secure) - Secure login with httpOnly cookies",
+                        "GET /api/auth/permissions - Get user permissions",
+                        "GET /api/auth/verify-access - Verify resource access"
                     },
                     UserManagement = new[] {
                         "GET /api/users - Get all users (Admin only)",
                         "GET /api/users/{id} - Get user by ID (Admin only)"
+                    },
+                    Security = new[] {
+                        "GET /api/csrf-token - Get CSRF token",
+                        "POST /api/auth/logout - Secure logout",
+                        "GET /api/auth/verify - Verify authentication status"
                     }
                 },
                 Security = new
                 {
-                    Authentication = "JWT Bearer Token",
+                    Authentication = "JWT Bearer Token + httpOnly Cookies",
                     Roles = new[] { "Member", "MinorStaff", "ManagementStaff", "Administrator" },
                     RateLimiting = new
                     {
                         Api = "100 requests per minute",
-                        Auth = "10 requests per minute"
+                        Auth = "5 requests per minute",
+                        PerUser = "200 requests per minute"
+                    },
+                    SecurityFeatures = new[] {
+                        "CSRF Protection",
+                        "Security Headers",
+                        "IP Filtering (configurable)",
+                        "Request Size Limits",
+                        "httpOnly Cookies",
+                        "Audit Logging"
                     }
                 }
             };
@@ -399,17 +432,18 @@ namespace LibSystem.Api
                 Environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production",
                 Database = "SQL Server",
                 Framework = "Entity Framework Core",
-                Authentication = "JWT + ASP.NET Core Identity",
+                Authentication = "JWT + ASP.NET Core Identity + httpOnly Cookies",
                 Uptime = Environment.TickCount64,
                 Features = new
                 {
                     Caching = "In-Memory",
                     Logging = "Serilog",
-                    RateLimiting = "ASP.NET Core Rate Limiting",
+                    RateLimiting = "Enhanced ASP.NET Core Rate Limiting",
                     ExceptionHandling = "Global Exception Middleware",
                     Validation = "FluentValidation",
                     Mapping = "AutoMapper",
-                    HealthChecks = "ASP.NET Core Health Checks"
+                    HealthChecks = "ASP.NET Core Health Checks",
+                    Security = "Enhanced Security Headers + CSRF + Audit Logging"
                 }
             };
 
