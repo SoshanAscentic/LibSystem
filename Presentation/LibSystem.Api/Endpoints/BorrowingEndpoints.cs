@@ -1,7 +1,7 @@
 ﻿using LibSystem.Api.Common;
 using LibSystem.Api.Extensions;
 using LibSystem.Application.Common.Models;
-using LibSystem.Application.DTOs;
+using LibSystem.Application.DTOs.Borrowing;
 using LibSystem.Application.Usecases.Borrowing.BorrowBook;
 using LibSystem.Application.Usecases.Borrowing.GetMemberBorrowingStatus;
 using LibSystem.Application.Usecases.Borrowing.ReturnBook;
@@ -18,38 +18,46 @@ namespace LibSystem.Api.Endpoints
                 .WithTags("Borrowing")
                 .WithOpenApi();
 
-            // POST /api/borrowing/borrow - Borrow a book
+            // POST /api/borrowing/borrow - Borrow a book (Members with borrowing privileges)
             group.MapPost("/borrow", BorrowBook)
                 .WithName("BorrowBook")
                 .WithSummary("Borrow a book from the library")
                 .WithDescription("Allows a member to borrow an available book, subject to borrowing limits and permissions")
                 .Produces<ApiResponse<string>>(StatusCodes.Status200OK)
                 .Produces<ApiResponse>(StatusCodes.Status400BadRequest)
+                .Produces<ApiResponse>(StatusCodes.Status401Unauthorized)
+                .Produces<ApiResponse>(StatusCodes.Status403Forbidden)
                 .Produces<ApiResponse>(StatusCodes.Status404NotFound)
                 .Produces<ApiResponse>(StatusCodes.Status409Conflict)
-                .Produces<ApiResponse>(StatusCodes.Status403Forbidden)
-                .Produces<ApiResponse>(StatusCodes.Status500InternalServerError);
+                .Produces<ApiResponse>(StatusCodes.Status500InternalServerError)
+                .RequireAuthorization("BorrowingManagement"); // Members, Minor Staff, Management Staff, Admin
 
-            // POST /api/borrowing/return - Return a book
+            // POST /api/borrowing/return - Return a book (Members with borrowing privileges)
             group.MapPost("/return", ReturnBook)
                 .WithName("ReturnBook")
                 .WithSummary("Return a borrowed book to the library")
                 .WithDescription("Allows a member to return a book they have previously borrowed")
                 .Produces<ApiResponse<string>>(StatusCodes.Status200OK)
                 .Produces<ApiResponse>(StatusCodes.Status400BadRequest)
+                .Produces<ApiResponse>(StatusCodes.Status401Unauthorized)
+                .Produces<ApiResponse>(StatusCodes.Status403Forbidden)
                 .Produces<ApiResponse>(StatusCodes.Status404NotFound)
                 .Produces<ApiResponse>(StatusCodes.Status409Conflict)
-                .Produces<ApiResponse>(StatusCodes.Status500InternalServerError);
+                .Produces<ApiResponse>(StatusCodes.Status500InternalServerError)
+                .RequireAuthorization("BorrowingManagement"); // Members, Minor Staff, Management Staff, Admin
 
-            // GET /api/borrowing/member/{memberId} - Get member borrowing status
+            // GET /api/borrowing/member/{memberId} - Get member borrowing status (Staff+ can see any member, Members can only see themselves)
             group.MapGet("/member/{memberId:int}", GetMemberBorrowingStatus)
                 .WithName("GetMemberBorrowingStatus")
                 .WithSummary("Get borrowing status for a specific member")
                 .WithDescription("Returns detailed borrowing information including active loans and borrowing history")
                 .Produces<ApiResponse<BorrowingStatusDto>>(StatusCodes.Status200OK)
                 .Produces<ApiResponse>(StatusCodes.Status400BadRequest)
+                .Produces<ApiResponse>(StatusCodes.Status401Unauthorized)
+                .Produces<ApiResponse>(StatusCodes.Status403Forbidden)
                 .Produces<ApiResponse>(StatusCodes.Status404NotFound)
-                .Produces<ApiResponse>(StatusCodes.Status500InternalServerError);
+                .Produces<ApiResponse>(StatusCodes.Status500InternalServerError)
+                .RequireAuthorization("RequireMemberRole"); // All authenticated users, but will check ownership in handler
         }
 
         private static async Task<IResult> BorrowBook(

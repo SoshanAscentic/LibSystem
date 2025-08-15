@@ -1,7 +1,7 @@
 ﻿using LibSystem.Api.Common;
 using LibSystem.Api.Extensions;
 using LibSystem.Application.Common.Models;
-using LibSystem.Application.DTOs;
+using LibSystem.Application.DTOs.Member;
 using LibSystem.Application.Usecases.Members.AuthenticateMember;
 using LibSystem.Application.Usecases.Members.CreateMember;
 using LibSystem.Application.Usecases.Members.GetAllMembers;
@@ -19,42 +19,52 @@ namespace LibSystem.Api.Endpoints
                 .WithTags("Members")
                 .WithOpenApi();
 
-            // GET /api/members - Get all members
+            // GET /api/members - Get all members (Staff+ only - members shouldn't see other members)
             group.MapGet("/", GetAllMembers)
                 .WithName("GetAllMembers")
                 .WithSummary("Retrieve all library members")
-                .WithDescription("Returns a list of all registered members with their details and permissions")
+                .WithDescription("Returns a list of all registered members with their details and permissions (Staff+ only)")
                 .Produces<ApiResponse<IReadOnlyList<MemberDto>>>(StatusCodes.Status200OK)
-                .Produces<ApiResponse>(StatusCodes.Status500InternalServerError);
+                .Produces<ApiResponse>(StatusCodes.Status401Unauthorized)
+                .Produces<ApiResponse>(StatusCodes.Status403Forbidden)
+                .Produces<ApiResponse>(StatusCodes.Status500InternalServerError)
+                .RequireAuthorization("RequireStaffRole"); // Staff and above only
 
-            // GET /api/members/{id} - Get member by ID
+            // GET /api/members/{id} - Get member by ID (Staff+ can see any member, Members can only see themselves)
             group.MapGet("/{id:int}", GetMemberById)
                 .WithName("GetMemberById")
                 .WithSummary("Retrieve a specific member by ID")
                 .WithDescription("Returns detailed information about a member including borrowing status")
                 .Produces<ApiResponse<MemberDto>>(StatusCodes.Status200OK)
                 .Produces<ApiResponse>(StatusCodes.Status400BadRequest)
+                .Produces<ApiResponse>(StatusCodes.Status401Unauthorized)
+                .Produces<ApiResponse>(StatusCodes.Status403Forbidden)
                 .Produces<ApiResponse>(StatusCodes.Status404NotFound)
-                .Produces<ApiResponse>(StatusCodes.Status500InternalServerError);
+                .Produces<ApiResponse>(StatusCodes.Status500InternalServerError)
+                .RequireAuthorization("RequireMemberRole"); // All authenticated users, but will check ownership in handler
 
-            // POST /api/members - Create a new member (Sign up)
+            // POST /api/members - Create a new member (Admin only for creating system users)
             group.MapPost("/", CreateMember)
                 .WithName("CreateMember")
                 .WithSummary("Register a new library member")
-                .WithDescription("Creates a new member account with specified member type and permissions")
+                .WithDescription("Creates a new member account with specified member type and permissions (Admin only)")
                 .Produces<ApiResponse<MemberDto>>(StatusCodes.Status201Created)
                 .Produces<ApiResponse>(StatusCodes.Status400BadRequest)
-                .Produces<ApiResponse>(StatusCodes.Status500InternalServerError);
+                .Produces<ApiResponse>(StatusCodes.Status401Unauthorized)
+                .Produces<ApiResponse>(StatusCodes.Status403Forbidden)
+                .Produces<ApiResponse>(StatusCodes.Status500InternalServerError)
+                .RequireAuthorization("MemberManagement"); // Admin only
 
-            // POST /api/members/authenticate - Authenticate member (Login)
+            // POST /api/members/authenticate - Authenticate member (Public - for legacy member login)
             group.MapPost("/authenticate", AuthenticateMember)
                 .WithName("AuthenticateMember")
                 .WithSummary("Authenticate a library member")
-                .WithDescription("Validates member credentials and returns member information")
+                .WithDescription("Validates member credentials and returns member information (Legacy endpoint)")
                 .Produces<ApiResponse<MemberDto>>(StatusCodes.Status200OK)
                 .Produces<ApiResponse>(StatusCodes.Status400BadRequest)
                 .Produces<ApiResponse>(StatusCodes.Status404NotFound)
-                .Produces<ApiResponse>(StatusCodes.Status500InternalServerError);
+                .Produces<ApiResponse>(StatusCodes.Status500InternalServerError)
+                .AllowAnonymous(); // Legacy endpoint for member authentication
         }
 
         private static async Task<IResult> GetAllMembers(ISender sender)

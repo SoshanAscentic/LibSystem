@@ -1,8 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿// --------------------------------------------------------------------------------------------------------------------
+// <copyright file="DomainErrors.cs" company="Ascentic">
+//   Copyright (c) Ascentic. All rights reserved.
+// </copyright>
+// <summary>
+//   Provides methods for registering application services.
+// </summary>
+// --------------------------------------------------------------------------------------------------------------------
 
 namespace LibSystem.Application.Common.Models
 {
@@ -76,6 +79,109 @@ namespace LibSystem.Application.Common.Models
             public static Error UnexpectedError() =>
                 Error.Failure("General.UnexpectedError", "An unexpected error occurred. Please try again later");
         }
+
+        public static class Identity
+        {
+            // Authentication Errors
+            public static Error InvalidCredentials() =>
+                Error.Unauthorized("Identity.InvalidCredentials", "Invalid email or password");
+
+            public static Error UserNotFound(string email) =>
+                Error.NotFound("Identity.UserNotFound", $"User with email '{email}' was not found");
+
+            public static Error UserNotFoundById(int userId) =>
+                Error.NotFound("Identity.UserNotFoundById", $"User with ID {userId} was not found");
+
+            public static Error AccountDeactivated() =>
+                Error.Forbidden("Identity.AccountDeactivated", "Your account has been deactivated. Please contact support");
+
+            public static Error AccountLocked() =>
+                Error.Forbidden("Identity.AccountLocked", "Your account is locked due to multiple failed login attempts. Please try again later");
+
+            public static Error EmailNotConfirmed() =>
+                Error.Forbidden("Identity.EmailNotConfirmed", "Please confirm your email before logging in");
+
+            public static Error InvalidToken() =>
+                Error.Unauthorized("Identity.InvalidToken", "Invalid or expired token");
+
+            public static Error TokenExpired() =>
+                Error.Unauthorized("Identity.TokenExpired", "Token has expired. Please login again");
+
+            // Registration Errors
+            public static Error UserAlreadyExists(string email) =>
+                Error.Conflict("Identity.UserAlreadyExists", $"A user with email '{email}' already exists");
+
+            public static Error RegistrationFailed(string details) =>
+                Error.Failure("Identity.RegistrationFailed", $"Registration failed: {details}");
+
+            public static Error InvalidRole(string role) =>
+                Error.Validation("Identity.InvalidRole", $"Invalid role: {role}. Valid roles are: Member, MinorStaff, ManagementStaff, Administrator");
+
+            // Password Errors
+            public static Error WeakPassword() =>
+                Error.Validation("Identity.WeakPassword", "Password does not meet security requirements");
+
+            public static Error PasswordMismatch() =>
+                Error.Validation("Identity.PasswordMismatch", "Password and confirmation password do not match");
+
+            public static Error CurrentPasswordIncorrect() =>
+                Error.Validation("Identity.CurrentPasswordIncorrect", "Current password is incorrect");
+
+            public static Error PasswordChangeFailed(string details) =>
+                Error.Failure("Identity.PasswordChangeFailed", $"Password change failed: {details}");
+
+            // User Management Errors
+            public static Error EmailAlreadyTaken(string email) =>
+                Error.Conflict("Identity.EmailAlreadyTaken", $"Email '{email}' is already taken by another user");
+
+            public static Error UserUpdateFailed(string details) =>
+                Error.Failure("Identity.UserUpdateFailed", $"User update failed: {details}");
+
+            public static Error RoleAssignmentFailed(string role, string details) =>
+                Error.Failure("Identity.RoleAssignmentFailed", $"Failed to assign role '{role}': {details}");
+
+            public static Error UserNotInRole(int userId, string role) =>
+                Error.Validation("Identity.UserNotInRole", $"User {userId} is not assigned to role '{role}'");
+
+            public static Error UserAlreadyInRole(int userId, string role) =>
+                Error.Conflict("Identity.UserAlreadyInRole", $"User {userId} is already assigned to role '{role}'");
+
+            public static Error RoleNotFound(string role) =>
+                Error.NotFound("Identity.RoleNotFound", $"Role '{role}' does not exist");
+
+            // Member Sync Errors
+            public static Error MemberSyncFailed(int userId) =>
+                Error.Failure("Identity.MemberSyncFailed", $"Failed to sync domain member for user {userId}");
+
+            public static Error MemberIdNotFound(int userId) =>
+                Error.NotFound("Identity.MemberIdNotFound", $"Member ID not found for user {userId}");
+
+            // JWT Token Errors
+            public static Error TokenGenerationFailed() =>
+                Error.Failure("Identity.TokenGenerationFailed", "Failed to generate authentication token");
+
+            public static Error TokenValidationFailed() =>
+                Error.Unauthorized("Identity.TokenValidationFailed", "Token validation failed");
+
+            // Email/Phone Confirmation Errors
+            public static Error EmailConfirmationFailed() =>
+                Error.Failure("Identity.EmailConfirmationFailed", "Email confirmation failed");
+
+            public static Error InvalidConfirmationToken() =>
+                Error.Validation("Identity.InvalidConfirmationToken", "Invalid confirmation token");
+
+            // General Identity Errors
+            public static Error InvalidEmailFormat() =>
+                Error.Validation("Identity.InvalidEmailFormat", "Invalid email format");
+
+            public static Error InvalidUserId() =>
+                Error.Validation("Identity.InvalidUserId", "User ID must be a positive integer");
+
+            public static Error OperationNotAllowed() =>
+                Error.Forbidden("Identity.OperationNotAllowed", "This operation is not allowed for the current user");
+
+            public static Error ConcurrencyConflict() =>
+                Error.Conflict("Identity.ConcurrencyConflict", "The user data was modified by another process. Please refresh and try again");
+        }
     }
 }
-

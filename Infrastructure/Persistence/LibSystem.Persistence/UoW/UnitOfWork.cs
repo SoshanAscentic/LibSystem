@@ -1,10 +1,10 @@
 ﻿using LibSystem.Application.Contracts.UoW;
 using LibSystem.Domain.Common;
-using LibSystem.Domain.Entities.Books;
 using LibSystem.Domain.Entities.Borrowing;
 using LibSystem.Domain.Entities.Members;
 using LibSystem.Domain.ValueObjects;
 using LibSystem.Persistence.Context;
+using MediatR;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
@@ -34,14 +34,12 @@ namespace LibSystem.Persistence.UoW
             // Process domain events before saving
             await ProcessDomainEventsAsync(cancellationToken);
 
-            // Get entities that need ID sync before save
-            var entitiesToSync = GetEntitiesNeedingIdSync();
-
-            // Save all changes to database (this generates the database IDs)
+            // SOLUTION 1: Simply save changes - no ID sync needed!
+            // BookId, MemberId, and BorrowingId are computed properties that automatically
+            // return the correct database Id value after save
             var result = await context.SaveChangesAsync(cancellationToken);
 
-            // Sync domain IDs after successful save
-            SyncDomainIdsAfterSave(entitiesToSync);
+            Console.WriteLine($"✅ Saved {result} changes successfully. All domain IDs are automatically synchronized.");
 
             return result;
         }
@@ -53,7 +51,11 @@ namespace LibSystem.Persistence.UoW
                 throw new InvalidOperationException("A transaction is already in progress.");
             }
 
-            await context.Database.BeginTransactionAsync();
+            var strategy = context.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
+            {
+                await context.Database.BeginTransactionAsync();
+            });
         }
 
         public async Task CommitTransactionAsync()
@@ -84,6 +86,45 @@ namespace LibSystem.Persistence.UoW
             await context.Database.RollbackTransactionAsync();
         }
 
+        public async Task<T> ExecuteInTransactionAsync<T>(Func<Task<T>> operation, CancellationToken cancellationToken = default)
+        {
+            var strategy = context.Database.CreateExecutionStrategy();
+            return await strategy.ExecuteAsync(async () =>
+            {
+                using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+                try
+                {
+                    var result = await operation();
+                    await transaction.CommitAsync(cancellationToken);
+                    return result;
+                }
+                catch
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    throw;
+                }
+            });
+        }
+
+        public async Task ExecuteInTransactionAsync(Func<Task> operation, CancellationToken cancellationToken = default)
+        {
+            var strategy = context.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
+            {
+                using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+                try
+                {
+                    await operation();
+                    await transaction.CommitAsync(cancellationToken);
+                }
+                catch
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    throw;
+                }
+            });
+        }
+
         private void SetAuditFields()
         {
             var entries = context.ChangeTracker.Entries<BaseEntity>();
@@ -99,69 +140,6 @@ namespace LibSystem.Persistence.UoW
                     case EntityState.Modified:
                         entry.Entity.UpdatedAt = DateTime.UtcNow;
                         break;
-                }
-            }
-        }
-        private List<BaseEntity> GetEntitiesNeedingIdSync()
-        {
-            return context.ChangeTracker.Entries<BaseEntity>()
-                .Where(e => e.State == EntityState.Added)
-                .Select(e => e.Entity)
-                .Where(entity =>
-                    (entity is Book book && book.BookId.Value == 0) ||
-                    (entity is Member member && member.MemberId.Value == 0) ||
-                    (entity is BorrowingRecord borrowing && borrowing.BorrowingId.Value == 0))
-                .ToList();
-        }
-
-        private void SyncDomainIdsAfterSave(List<BaseEntity> entitiesToSync)
-        {
-            foreach (var entity in entitiesToSync)
-            {
-                if (entity.Id > 0) // Entity now has database-generated ID
-                {
-                    var databaseId = entity.Id;
-
-                    try
-                    {
-                        // Sync Book entities
-                        if (entity is Book book)
-                        {
-                            var bookIdProperty = typeof(Book).GetProperty("BookId");
-                            if (bookIdProperty != null)
-                            {
-                                var newBookId = BookId.Create(databaseId);
-                                bookIdProperty.SetValue(book, newBookId);
-                                Console.WriteLine($"✅ Synced Book ID: {databaseId}");
-                            }
-                        }
-                        // Sync Member entities
-                        else if (entity is Member member)
-                        {
-                            var memberIdProperty = typeof(Member).GetProperty("MemberId");
-                            if (memberIdProperty != null)
-                            {
-                                var newMemberId = MemberId.Create(databaseId);
-                                memberIdProperty.SetValue(member, newMemberId);
-                                Console.WriteLine($"✅ Synced Member ID: {databaseId}");
-                            }
-                        }
-                        // Sync BorrowingRecord entities
-                        else if (entity is BorrowingRecord borrowing)
-                        {
-                            var borrowingIdProperty = typeof(BorrowingRecord).GetProperty("BorrowingId");
-                            if (borrowingIdProperty != null)
-                            {
-                                var newBorrowingId = BorrowingId.Create(databaseId);
-                                borrowingIdProperty.SetValue(borrowing, newBorrowingId);
-                                Console.WriteLine($"✅ Synced Borrowing ID: {databaseId}");
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"❌ Failed to sync ID for {entity.GetType().Name}: {ex.Message}");
-                    }
                 }
             }
         }
@@ -182,8 +160,9 @@ namespace LibSystem.Persistence.UoW
 
             foreach (var domainEvent in domainEvents)
             {
-                Console.WriteLine($"Domain Event: {domainEvent.GetType().Name} occurred at {domainEvent.OccurredOn}");
+                Console.WriteLine($"📧 Domain Event: {domainEvent.GetType().Name} occurred at {domainEvent.OccurredOn}");
             }
+
         }
 
         public void Dispose()

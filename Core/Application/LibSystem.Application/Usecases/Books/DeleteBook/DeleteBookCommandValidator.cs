@@ -1,17 +1,21 @@
-﻿using FluentValidation;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿// --------------------------------------------------------------------------------------------------------------------
+// <copyright file="DeleteBookCommandValidator.cs" company="Ascentic">
+//   Copyright (c) Ascentic. All rights reserved.
+// </copyright>
+// <summary>
+//   Provides methods for registering application services.
+// </summary>
+// --------------------------------------------------------------------------------------------------------------------
 
 namespace LibSystem.Application.Usecases.Books.DeleteBook
 {
+    using FluentValidation;
+
     public class DeleteBookCommandValidator : AbstractValidator<DeleteBookCommand>
     {
         public DeleteBookCommandValidator()
         {
-            RuleFor(x => x.BookId)
+            this.RuleFor(x => x.bookId)
                 .GreaterThan(0).WithMessage("Book ID must be a positive integer.");
         }
     }

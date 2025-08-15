@@ -1,5 +1,4 @@
 ﻿using LibSystem.Application.Common.Models;
-using LibSystem.Application.DTOs;
 using LibSystem.Application.Usecases.Books.CreateBook;
 using LibSystem.Application.Usecases.Books.DeleteBook;
 using LibSystem.Application.Usecases.Books.GetAllBooks;
@@ -10,6 +9,7 @@ using LibSystem.Api.Common;
 using LibSystem.Api.Extensions;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using LibSystem.Application.DTOs.Book;
 
 namespace LibSystem.Api.Endpoints
 {
@@ -21,62 +21,76 @@ namespace LibSystem.Api.Endpoints
                 .WithTags("Books")
                 .WithOpenApi();
 
-            // GET /api/books - Get all books
+            // GET /api/books - Get all books (All authenticated users can view books)
             group.MapGet("/", GetAllBooks)
                 .WithName("GetAllBooks")
                 .WithSummary("Retrieve all books in the library")
                 .WithDescription("Returns a list of all books with their availability status and details")
                 .Produces<ApiResponse<IReadOnlyList<BookDto>>>(StatusCodes.Status200OK)
-                .Produces<ApiResponse>(StatusCodes.Status500InternalServerError);
+                .Produces<ApiResponse>(StatusCodes.Status401Unauthorized)
+                .Produces<ApiResponse>(StatusCodes.Status500InternalServerError)
+                .RequireAuthorization("RequireMemberRole"); // All authenticated users can view books
 
-            // GET /api/books/{id} - Get book by ID
+            // GET /api/books/{id} - Get book by ID (All authenticated users can view books)
             group.MapGet("/{id:int}", GetBookById)
                 .WithName("GetBookById")
                 .WithSummary("Retrieve a specific book by ID")
                 .WithDescription("Returns detailed information about a book including availability status")
                 .Produces<ApiResponse<BookDto>>(StatusCodes.Status200OK)
                 .Produces<ApiResponse>(StatusCodes.Status400BadRequest)
+                .Produces<ApiResponse>(StatusCodes.Status401Unauthorized)
                 .Produces<ApiResponse>(StatusCodes.Status404NotFound)
-                .Produces<ApiResponse>(StatusCodes.Status500InternalServerError);
+                .Produces<ApiResponse>(StatusCodes.Status500InternalServerError)
+                .RequireAuthorization("RequireMemberRole");
 
-            // GET /api/books/category/{category} - Get books by category
+            // GET /api/books/category/{category} - Get books by category (All authenticated users)
             group.MapGet("/category/{category}", GetBooksByCategory)
                 .WithName("GetBooksByCategory")
                 .WithSummary("Retrieve books by category")
                 .WithDescription("Returns books filtered by category (Fiction, History, Child)")
                 .Produces<ApiResponse<IReadOnlyList<BookDto>>>(StatusCodes.Status200OK)
                 .Produces<ApiResponse>(StatusCodes.Status400BadRequest)
-                .Produces<ApiResponse>(StatusCodes.Status500InternalServerError);
+                .Produces<ApiResponse>(StatusCodes.Status401Unauthorized)
+                .Produces<ApiResponse>(StatusCodes.Status500InternalServerError)
+                .RequireAuthorization("RequireMemberRole");
 
-            // GET /api/books/author/{author} - Get books by author
+            // GET /api/books/author/{author} - Get books by author (All authenticated users)
             group.MapGet("/author/{author}", GetBooksByAuthor)
                 .WithName("GetBooksByAuthor")
                 .WithSummary("Retrieve books by author")
                 .WithDescription("Returns books filtered by author name (supports partial matching)")
                 .Produces<ApiResponse<IReadOnlyList<BookDto>>>(StatusCodes.Status200OK)
                 .Produces<ApiResponse>(StatusCodes.Status400BadRequest)
-                .Produces<ApiResponse>(StatusCodes.Status500InternalServerError);
+                .Produces<ApiResponse>(StatusCodes.Status401Unauthorized)
+                .Produces<ApiResponse>(StatusCodes.Status500InternalServerError)
+                .RequireAuthorization("RequireMemberRole");
 
-            // POST /api/books - Create a new book
+            // POST /api/books - Create a new book (Management Staff + Admin only)
             group.MapPost("/", CreateBook)
                 .WithName("CreateBook")
                 .WithSummary("Add a new book to the library")
-                .WithDescription("Creates a new book with validation for duplicate titles and years")
+                .WithDescription("Creates a new book with validation for duplicate titles and years (Management Staff+ only)")
                 .Produces<ApiResponse<BookDto>>(StatusCodes.Status201Created)
                 .Produces<ApiResponse>(StatusCodes.Status400BadRequest)
+                .Produces<ApiResponse>(StatusCodes.Status401Unauthorized)
+                .Produces<ApiResponse>(StatusCodes.Status403Forbidden)
                 .Produces<ApiResponse>(StatusCodes.Status409Conflict)
-                .Produces<ApiResponse>(StatusCodes.Status500InternalServerError);
+                .Produces<ApiResponse>(StatusCodes.Status500InternalServerError)
+                .RequireAuthorization("BookManagement"); // Management Staff and Admin only
 
-            // DELETE /api/books/{id} - Delete a book
+            // DELETE /api/books/{id} - Delete a book (Management Staff + Admin only)
             group.MapDelete("/{id:int}", DeleteBook)
                 .WithName("DeleteBook")
                 .WithSummary("Remove a book from the library")
-                .WithDescription("Deletes a book if it's not currently borrowed")
+                .WithDescription("Deletes a book if it's not currently borrowed (Management Staff+ only)")
                 .Produces(StatusCodes.Status204NoContent)
                 .Produces<ApiResponse>(StatusCodes.Status400BadRequest)
+                .Produces<ApiResponse>(StatusCodes.Status401Unauthorized)
+                .Produces<ApiResponse>(StatusCodes.Status403Forbidden)
                 .Produces<ApiResponse>(StatusCodes.Status404NotFound)
                 .Produces<ApiResponse>(StatusCodes.Status409Conflict)
-                .Produces<ApiResponse>(StatusCodes.Status500InternalServerError);
+                .Produces<ApiResponse>(StatusCodes.Status500InternalServerError)
+                .RequireAuthorization("BookManagement"); // Management Staff and Admin only
         }
 
         private static async Task<IResult> GetAllBooks(ISender sender)

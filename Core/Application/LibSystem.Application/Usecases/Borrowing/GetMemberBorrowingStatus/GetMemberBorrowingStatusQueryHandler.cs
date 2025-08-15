@@ -1,18 +1,22 @@
-﻿using AutoMapper;
-using LibSystem.Application.Common.Models;
-using LibSystem.Application.Contracts.Repositories;
-using LibSystem.Application.DTOs;
-using LibSystem.Domain.ValueObjects;
-using MediatR;
-using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿// --------------------------------------------------------------------------------------------------------------------
+// <copyright file="GetMemberBorrowingStatusQueryHandler.cs" company="Ascentic">
+//   Copyright (c) Ascentic. All rights reserved.
+// </copyright>
+// <summary>
+//   Provides methods for registering application services.
+// </summary>
+// --------------------------------------------------------------------------------------------------------------------
 
 namespace LibSystem.Application.Usecases.Borrowing.GetMemberBorrowingStatus
 {
+    using AutoMapper;
+    using LibSystem.Application.Common.Models;
+    using LibSystem.Application.Contracts.Repositories;
+    using LibSystem.Application.DTOs.Borrowing;
+    using LibSystem.Domain.ValueObjects;
+    using MediatR;
+    using Microsoft.Extensions.Logging;
+
     public class GetMemberBorrowingStatusQueryHandler : IRequestHandler<GetMemberBorrowingStatusQuery, Result<BorrowingStatusDto>>
     {
         private readonly IMemberRepository memberRepository;
@@ -44,29 +48,29 @@ namespace LibSystem.Application.Usecases.Borrowing.GetMemberBorrowingStatus
                     return Result<BorrowingStatusDto>.Failure(DomainErrors.General.InvalidId("Member"));
                 }
 
-                logger.LogInformation("Retrieving borrowing status for member: {MemberId}", request.MemberId);
+                this.logger.LogInformation("Retrieving borrowing status for member: {MemberId}", request.MemberId);
 
                 var memberId = MemberId.Create(request.MemberId);
-                var member = await memberRepository.GetByIdAsync(memberId, cancellationToken);
+                var member = await this.memberRepository.GetByIdAsync(memberId, cancellationToken);
 
                 if (member == null)
                 {
-                    logger.LogWarning("Member not found for borrowing status: {MemberId}", request.MemberId);
+                    this.logger.LogWarning("Member not found for borrowing status: {MemberId}", request.MemberId);
                     return Result<BorrowingStatusDto>.Failure(DomainErrors.Member.NotFound(request.MemberId));
                 }
 
                 // Get borrowing status
-                var borrowingStatus = mapper.Map<BorrowingStatusDto>(member);
+                var borrowingStatus = this.mapper.Map<BorrowingStatusDto>(member);
 
                 // Get active borrowing records
-                var activeBorrowings = await borrowingRepository.GetActiveBorrowingsByMemberAsync(memberId, cancellationToken);
+                var activeBorrowings = await this.borrowingRepository.GetActiveBorrowingsByMemberAsync(memberId, cancellationToken);
 
                 // Populate borrowed books information
                 borrowingStatus.BorrowedBooks = new List<BorrowedBookDto>();
 
                 foreach (var borrowing in activeBorrowings)
                 {
-                    var book = await bookRepository.GetByIdAsync(borrowing.BookId, cancellationToken);
+                    var book = await this.bookRepository.GetByIdAsync(borrowing.BookId, cancellationToken);
                     if (book != null)
                     {
                         var borrowedBook = new BorrowedBookDto
@@ -76,25 +80,28 @@ namespace LibSystem.Application.Usecases.Borrowing.GetMemberBorrowingStatus
                             Author = book.Author,
                             BorrowedAt = borrowing.BorrowedAt,
                             DaysBorrowed = borrowing.DaysBorrowed,
-                            IsOverdue = borrowing.IsOverdue()
+                            IsOverdue = borrowing.IsOverdue(),
                         };
                         borrowingStatus.BorrowedBooks.Add(borrowedBook);
                     }
                 }
 
-                logger.LogInformation("Successfully retrieved borrowing status for member: {MemberName} ({MemberId}) - {BorrowedCount} books borrowed",
-                    member.Name.Value, member.MemberId.Value, borrowingStatus.BorrowedBooks.Count);
+                this.logger.LogInformation(
+                    "Successfully retrieved borrowing status for member: {MemberName} ({MemberId}) - {BorrowedCount} books borrowed",
+                    member.Name.Value,
+                    member.MemberId.Value,
+                    borrowingStatus.BorrowedBooks.Count);
 
                 return Result<BorrowingStatusDto>.Success(borrowingStatus);
             }
             catch (ArgumentException ex) when (ex.Message.Contains("ID") || ex.Message.Contains("positive"))
             {
-                logger.LogWarning(ex, "Invalid member ID provided: {MemberId}", request.MemberId);
+                this.logger.LogWarning(ex, "Invalid member ID provided: {MemberId}", request.MemberId);
                 return Result<BorrowingStatusDto>.Failure(DomainErrors.General.InvalidId("Member"));
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Unexpected error retrieving borrowing status for member: {MemberId}", request.MemberId);
+                this.logger.LogError(ex, "Unexpected error retrieving borrowing status for member: {MemberId}", request.MemberId);
                 return Result<BorrowingStatusDto>.Failure(DomainErrors.General.UnexpectedError());
             }
         }

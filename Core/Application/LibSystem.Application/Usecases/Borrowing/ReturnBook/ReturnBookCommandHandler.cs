@@ -56,24 +56,22 @@ namespace LibSystem.Application.Usecases.Borrowing.ReturnBook
                 var bookId = BookId.Create(request.BookId);
                 var memberId = MemberId.Create(request.MemberID);
 
-                // Use UnitOfWork for transaction management
-                await unitOfWork.BeginTransactionAsync();
-
-                try
+                // Use UnitOfWork's execution strategy to handle the entire operation within a transaction
+                var result = await unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
                     // Get and validate entities
                     var book = await bookRepository.GetByIdAsync(bookId, cancellationToken);
                     if (book == null)
                     {
                         logger.LogWarning("Book not found for return: {BookId}", request.BookId);
-                        return Result<string>.Failure(DomainErrors.Book.NotFound(request.BookId));
+                        throw new BookNotFoundException(request.BookId);
                     }
 
                     var member = await memberRepository.GetByIdAsync(memberId, cancellationToken);
                     if (member == null)
                     {
                         logger.LogWarning("Member not found for return: {MemberID}", request.MemberID);
-                        return Result<string>.Failure(DomainErrors.Member.NotFound(request.MemberID));
+                        throw new MemberNotFoundException(request.MemberID);
                     }
 
                     // Find active borrowing record
@@ -82,7 +80,7 @@ namespace LibSystem.Application.Usecases.Borrowing.ReturnBook
                     {
                         logger.LogWarning("No active borrowing found for return - Book: {BookId}, Member: {MemberID}",
                             request.BookId, request.MemberID);
-                        return Result<string>.Failure(DomainErrors.Borrowing.BookNotBorrowedByMember(request.BookId, request.MemberID));
+                        throw new InvalidBorrowingException($"Book {request.BookId} is not currently borrowed by member {request.MemberID}.");
                     }
 
                     // Execute business logic on domain entities
@@ -98,21 +96,14 @@ namespace LibSystem.Application.Usecases.Borrowing.ReturnBook
                     // Save all changes through UnitOfWork
                     await unitOfWork.SaveChangesAsync(cancellationToken);
 
-                    // Commit transaction through UnitOfWork
-                    await unitOfWork.CommitTransactionAsync();
-
                     var successMessage = $"Book '{book.Title}' returned successfully by {member.Name.Value}!";
                     logger.LogInformation("Successfully processed return request - Book: {BookId}, Member: {MemberID}",
                         request.BookId, request.MemberID);
 
-                    return Result<string>.Success(successMessage);
-                }
-                catch
-                {
-                    // Rollback through UnitOfWork
-                    await unitOfWork.RollbackTransactionAsync();
-                    throw;
-                }
+                    return successMessage;
+                }, cancellationToken);
+
+                return Result<string>.Success(result);
             }
             catch (InvalidBorrowingException ex) when (ex.Message.Contains("not currently borrowed") || ex.Message.Contains("not borrowed"))
             {

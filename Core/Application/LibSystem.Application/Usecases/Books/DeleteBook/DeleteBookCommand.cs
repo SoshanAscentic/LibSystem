@@ -1,13 +1,17 @@
-﻿using LibSystem.Application.Common.Models;
-using MediatR;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿// --------------------------------------------------------------------------------------------------------------------
+// <copyright file="DeleteBookCommand.cs" company="Ascentic">
+//   Copyright (c) Ascentic. All rights reserved.
+// </copyright>
+// <summary>
+//   Provides methods for registering application services.
+// </summary>
+// --------------------------------------------------------------------------------------------------------------------
 
 namespace LibSystem.Application.Usecases.Books.DeleteBook
 {
-    public record DeleteBookCommand(int BookId) : IRequest<Result>;
+    using LibSystem.Application.Common.Models;
+    using MediatR;
 
+    public record DeleteBookCommand(int bookId)
+    : IRequest<Result>;
 }

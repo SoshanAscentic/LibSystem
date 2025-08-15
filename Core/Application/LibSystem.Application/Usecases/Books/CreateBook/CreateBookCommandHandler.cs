@@ -1,20 +1,23 @@
-﻿using AutoMapper;
-using LibSystem.Application.Common.Models;
-using LibSystem.Application.Contracts.Repositories;
-using LibSystem.Application.Contracts.UoW;
-using LibSystem.Application.DTOs;
-using LibSystem.Domain.Entities.Books;
-using LibSystem.Domain.Exceptions;
-using MediatR;
-using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿// --------------------------------------------------------------------------------------------------------------------
+// <copyright file="CreateBookCommandHandler.cs" company="Ascentic">
+//   Copyright (c) Ascentic. All rights reserved.
+// </copyright>
+// <summary>
+//   Provides methods for registering application services.
+// </summary>
+// --------------------------------------------------------------------------------------------------------------------
 
 namespace LibSystem.Application.Usecases.Books.CreateBook
 {
+    using AutoMapper;
+    using LibSystem.Application.Common.Models;
+    using LibSystem.Application.Contracts.Repositories;
+    using LibSystem.Application.Contracts.UoW;
+    using LibSystem.Application.DTOs.Book;
+    using LibSystem.Domain.Exceptions;
+    using MediatR;
+    using Microsoft.Extensions.Logging;
+
     public class CreateBookCommandHandler : IRequestHandler<CreateBookCommand, Result<BookDto>>
     {
         private readonly IBookRepository bookRepository;
@@ -38,61 +41,61 @@ namespace LibSystem.Application.Usecases.Books.CreateBook
         {
             try
             {
-                logger.LogInformation("Creating book: {Title} by {Author}", request.Title, request.Author);
+                this.logger.LogInformation("Creating book: {Title} by {Author}", request.title, request.author);
 
                 // Check for duplicates (business rule: unique title + year combination)
-                var existingBook = await bookRepository.GetByTitleAndYearAsync(
-                    request.Title, request.PublicationYear, cancellationToken);
+                var existingBook = await this.bookRepository.GetByTitleAndYearAsync(
+                    request.title, request.publicationYear, cancellationToken);
 
                 if (existingBook != null)
                 {
-                    logger.LogWarning("Duplicate book creation attempted: {Title} ({Year})", request.Title, request.PublicationYear);
-                    return Result<BookDto>.Failure(DomainErrors.Book.AlreadyExists(request.Title, request.PublicationYear));
+                    this.logger.LogWarning("Duplicate book creation attempted: {Title} ({Year})", request.title, request.publicationYear);
+                    return Result<BookDto>.Failure(DomainErrors.Book.AlreadyExists(request.title, request.publicationYear));
                 }
 
                 // Create new book using domain factory method
                 var book = Book.Create(
-                    request.Title,
-                    request.Author,
-                    request.PublicationYear,
-                    (Book.BookCategory)request.Category);
+                    request.title,
+                    request.author,
+                    request.publicationYear,
+                    (Book.BookCategory)request.category);
 
                 // Add to repository (stages the change)
-                await bookRepository.AddAsync(book, cancellationToken);
+                await this.bookRepository.AddAsync(book, cancellationToken);
 
                 // Save through UnitOfWork
-                await unitOfWork.SaveChangesAsync(cancellationToken);
+                await this.unitOfWork.SaveChangesAsync(cancellationToken);
 
                 // Map to DTO and return success result
-                var bookDto = mapper.Map<BookDto>(book);
+                var bookDto = this.mapper.Map<BookDto>(book);
 
-                logger.LogInformation("Successfully created book with ID: {BookId}", book.BookId.Value);
+                this.logger.LogInformation("Successfully created book with ID: {BookId}", book.BookId.Value);
 
                 return Result<BookDto>.Success(bookDto);
             }
             catch (DuplicateBookException ex)
             {
-                logger.LogWarning(ex, "Duplicate book creation attempted");
-                return Result<BookDto>.Failure(DomainErrors.Book.AlreadyExists(request.Title, request.PublicationYear));
+                this.logger.LogWarning(ex, "Duplicate book creation attempted");
+                return Result<BookDto>.Failure(DomainErrors.Book.AlreadyExists(request.title, request.publicationYear));
             }
             catch (ArgumentException ex) when (ex.Message.Contains("title"))
             {
-                logger.LogWarning(ex, "Invalid title provided");
+                this.logger.LogWarning(ex, "Invalid title provided");
                 return Result<BookDto>.Failure(DomainErrors.Book.InvalidTitle());
             }
             catch (ArgumentException ex) when (ex.Message.Contains("author"))
             {
-                logger.LogWarning(ex, "Invalid author provided");
+                this.logger.LogWarning(ex, "Invalid author provided");
                 return Result<BookDto>.Failure(DomainErrors.Book.InvalidAuthor());
             }
             catch (ArgumentException ex) when (ex.Message.Contains("publication"))
             {
-                logger.LogWarning(ex, "Invalid publication year provided");
+                this.logger.LogWarning(ex, "Invalid publication year provided");
                 return Result<BookDto>.Failure(DomainErrors.Book.InvalidPublicationYear());
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error creating book: {Title} by {Author}", request.Title, request.Author);
+                this.logger.LogError(ex, "Error creating book: {Title} by {Author}", request.title, request.author);
                 return Result<BookDto>.Failure(DomainErrors.General.UnexpectedError());
             }
         }

@@ -8,21 +8,21 @@
 
   <ItemGroup>
     <PackageReference Include="MediatR" Version="12.5.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Antiforgery" Version="2.3.0" />
+    <PackageReference Include="Microsoft.AspNetCore.HeaderPropagation" Version="9.0.7" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.ViewFeatures" Version="2.3.0" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.6" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.6">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="9.0.6" />
     <PackageReference Include="Serilog" Version="4.3.0" />
     <PackageReference Include="Serilog.AspNetCore" Version="9.0.0" />
     <PackageReference Include="Serilog.Extensions.Hosting" Version="9.0.0" />
     <PackageReference Include="Serilog.Settings.Configuration" Version="9.0.0" />
     <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
-    <PackageReference Include="SonarAnalyzer.CSharp" Version="10.12.0.118525">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
     <PackageReference Include="StyleCop.Analyzers" Version="1.1.118">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -36,6 +36,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Core\Domain\LibSystem.Domain\LibSystem.Domain.csproj" />
+    <ProjectReference Include="..\..\Infrastructure\Identity\LibSystem.Identity\LibSystem.Indentity\LibSystem.Indentity.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Persistence\LibSystem.Persistence\LibSystem.Persistence.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Utils\LibSystem.Utils\LibSystem.Utils.csproj" />
   </ItemGroup>
